@@ -1,0 +1,559 @@
+{
+  "signature": "6754RLWddRPsWvTV2eR6Bao9UA6jYi9FACKWtbdNWaYUsHZjskrjwko7caLrvWjZozpgg9YFVsmafktf6ebKrYT6",
+  "slot": 459384503,
+  "blockTime": 1792532829,
+  "program": {
+    "id": "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc",
+    "name": "whirlpool"
+  },
+  "poolContext": {
+    "address": "CsftscgBmHuxc21r1FUCRXDFhfdzFJQTXTXSPwnGcZAa",
+    "owner": "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc",
+    "dataSize": 653
+  },
+  "roundTrip": {
+    "ok": true,
+    "report": [
+      {
+        "index": 0,
+        "discriminator": "02801a0600",
+        "discriminatorMatches": true,
+        "argBytes": 0,
+        "argBytesMatch": true,
+        "accountsMatch": true
+      },
+      {
+        "index": 1,
+        "discriminator": "03e8030000000000",
+        "discriminatorMatches": true,
+        "argBytes": 1,
+        "argBytesMatch": true,
+        "accountsMatch": true
+      },
+      {
+        "index": 2,
+        "discriminator": "3a7fbc3e4f52c460",
+        "discriminatorMatches": true,
+        "argBytes": 33,
+        "argBytesMatch": true,
+        "accountsMatch": true
+      },
+      {
+        "index": 3,
+        "discriminator": "cf755fbfe5b4e20f",
+        "discriminatorMatches": true,
+        "argBytes": 1,
+        "argBytesMatch": true,
+        "accountsMatch": true
+      },
+      {
+        "index": 4,
+        "discriminator": "3a7fbc3e4f52c460",
+        "discriminatorMatches": true,
+        "argBytes": 33,
+        "argBytesMatch": true,
+        "accountsMatch": true
+      },
+      {
+        "index": 5,
+        "discriminator": "cf755fbfe5b4e20f",
+        "discriminatorMatches": true,
+        "argBytes": 1,
+        "argBytesMatch": true,
+        "accountsMatch": true
+      },
+      {
+        "index": 6,
+        "discriminator": "2b04ed0b1ac91e62",
+        "discriminatorMatches": true,
+        "argBytes": 35,
+        "argBytesMatch": true,
+        "accountsMatch": true
+      },
+      {
+        "index": 7,
+        "discriminator": "851d59df45eeb00a",
+        "discriminatorMatches": true,
+        "argBytes": 33,
+        "argBytesMatch": true,
+        "accountsMatch": true
+      },
+      {
+        "index": 8,
+        "discriminator": "851d59df45eeb00a",
+        "discriminatorMatches": true,
+        "argBytes": 33,
+        "argBytesMatch": true,
+        "accountsMatch": true
+      },
+      {
+        "index": 9,
+        "discriminator": "0200000088130000",
+        "discriminatorMatches": true,
+        "argBytes": 4,
+        "argBytesMatch": true,
+        "accountsMatch": true
+      }
+    ]
+  },
+  "accountKeys": [
+    "2sJWNe9HM3A8tDd5Q7NuCvLbhMdTeqzDhKqV4Pv9Td1p",
+    "9uNtbDTFkoXNgWUPs7yuVcGMW1b4Yiw1zanNDfF2s7Pv",
+    "Bi5Lz2PTkCKJkbADUWaLbCq36V5EFvDo1UaqbSpLhQQc",
+    "D2L6yPZ2FmmmTKPgzaMKdhu6EWZcTpLy1Vhx8uvZe7NZ",
+    "HNaqSemzSgL5jWDkqBik6X4syyqVknt3CQg9XXFJu7Xw",
+    "11111111111111111111111111111111",
+    "ComputeBudget111111111111111111111111111111",
+    "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc"
+  ],
+  "addressSpaceSize": 23,
+  "version": "v0",
+  "lookupTables": [
+    {
+      "table": "2ne8NUtGCQzAoRLvJm3yNo9Wozfj2A7PCVruVMEgfjzn",
+      "resolved": true,
+      "loadedWritable": 8,
+      "loadedReadonly": 7
+    }
+  ],
+  "instructions": [
+    {
+      "index": 0,
+      "isTarget": false,
+      "name": null,
+      "discriminator": "02801a0600",
+      "argBytes": 0,
+      "accounts": 0,
+      "accountsResolved": [],
+      "unresolvedAccounts": [],
+      "inner": []
+    },
+    {
+      "index": 1,
+      "isTarget": false,
+      "name": null,
+      "discriminator": "03e8030000000000",
+      "argBytes": 1,
+      "accounts": 0,
+      "accountsResolved": [],
+      "unresolvedAccounts": [],
+      "inner": []
+    },
+    {
+      "index": 2,
+      "isTarget": true,
+      "name": "DECREASE_LIQUIDITY_V2",
+      "discriminator": "3a7fbc3e4f52c460",
+      "argBytes": 33,
+      "accounts": 15,
+      "accountsResolved": [
+        "CsftscgBmHuxc21r1FUCRXDFhfdzFJQTXTXSPwnGcZAa",
+        "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+        "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr",
+        "2sJWNe9HM3A8tDd5Q7NuCvLbhMdTeqzDhKqV4Pv9Td1p",
+        "DF8D4ffCf1sgSG3BUdFGjHo13subcgiJXX4sPndLmtzn",
+        "BexkSwE2NA3mfj1Ze3iauGyy2Zw4XF58DdB6mcKQDPKP",
+        "So11111111111111111111111111111111111111112",
+        "D42TjMjz5H7toPu5md5KBXreZkCSdZMEfLQwmBhJXvb1",
+        "NkWwsEcDcBd8oL1XYUnYdbYGxzc2K3KyYHdFvUMRYAd",
+        "YJbdN1mUHKvQGcCUK6t8ndUmZ3YPeaerUyhjEKzE5NV",
+        "FLqsiZSZpAoiuUVubAgueMEoDtKfkot32wcnEYLhobiU",
+        "E8yvEJPx1WgqDepWN7Luh2qreAvNepaZmGqKcim9L8hw",
+        "HNaqSemzSgL5jWDkqBik6X4syyqVknt3CQg9XXFJu7Xw",
+        "HNaqSemzSgL5jWDkqBik6X4syyqVknt3CQg9XXFJu7Xw"
+      ],
+      "unresolvedAccounts": [],
+      "inner": [
+        {
+          "program": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+          "isTarget": false,
+          "name": null,
+          "discriminator": "0c00000000000000",
+          "argBytes": 2,
+          "accountCount": 4,
+          "accountsResolved": [
+            "FLqsiZSZpAoiuUVubAgueMEoDtKfkot32wcnEYLhobiU",
+            "So11111111111111111111111111111111111111112",
+            "NkWwsEcDcBd8oL1XYUnYdbYGxzc2K3KyYHdFvUMRYAd",
+            "CsftscgBmHuxc21r1FUCRXDFhfdzFJQTXTXSPwnGcZAa"
+          ],
+          "unresolved": []
+        },
+        {
+          "program": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+          "isTarget": false,
+          "name": null,
+          "discriminator": "0c0135f470010000",
+          "argBytes": 2,
+          "accountCount": 4,
+          "accountsResolved": [
+            "E8yvEJPx1WgqDepWN7Luh2qreAvNepaZmGqKcim9L8hw",
+            "D42TjMjz5H7toPu5md5KBXreZkCSdZMEfLQwmBhJXvb1",
+            "YJbdN1mUHKvQGcCUK6t8ndUmZ3YPeaerUyhjEKzE5NV",
+            "CsftscgBmHuxc21r1FUCRXDFhfdzFJQTXTXSPwnGcZAa"
+          ],
+          "unresolved": []
+        }
+      ]
+    },
+    {
+      "index": 3,
+      "isTarget": true,
+      "name": "COLLECT_FEES_V2",
+      "discriminator": "cf755fbfe5b4e20f",
+      "argBytes": 1,
+      "accounts": 13,
+      "accountsResolved": [
+        "CsftscgBmHuxc21r1FUCRXDFhfdzFJQTXTXSPwnGcZAa",
+        "2sJWNe9HM3A8tDd5Q7NuCvLbhMdTeqzDhKqV4Pv9Td1p",
+        "DF8D4ffCf1sgSG3BUdFGjHo13subcgiJXX4sPndLmtzn",
+        "BexkSwE2NA3mfj1Ze3iauGyy2Zw4XF58DdB6mcKQDPKP",
+        "So11111111111111111111111111111111111111112",
+        "D42TjMjz5H7toPu5md5KBXreZkCSdZMEfLQwmBhJXvb1",
+        "NkWwsEcDcBd8oL1XYUnYdbYGxzc2K3KyYHdFvUMRYAd",
+        "FLqsiZSZpAoiuUVubAgueMEoDtKfkot32wcnEYLhobiU",
+        "YJbdN1mUHKvQGcCUK6t8ndUmZ3YPeaerUyhjEKzE5NV",
+        "E8yvEJPx1WgqDepWN7Luh2qreAvNepaZmGqKcim9L8hw",
+        "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+        "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr"
+      ],
+      "unresolvedAccounts": [],
+      "inner": [
+        {
+          "program": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+          "isTarget": false,
+          "name": null,
+          "discriminator": "0c00000000000000",
+          "argBytes": 2,
+          "accountCount": 4,
+          "accountsResolved": [
+            "FLqsiZSZpAoiuUVubAgueMEoDtKfkot32wcnEYLhobiU",
+            "So11111111111111111111111111111111111111112",
+            "NkWwsEcDcBd8oL1XYUnYdbYGxzc2K3KyYHdFvUMRYAd",
+            "CsftscgBmHuxc21r1FUCRXDFhfdzFJQTXTXSPwnGcZAa"
+          ],
+          "unresolved": []
+        },
+        {
+          "program": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+          "isTarget": false,
+          "name": null,
+          "discriminator": "0c00000000000000",
+          "argBytes": 2,
+          "accountCount": 4,
+          "accountsResolved": [
+            "E8yvEJPx1WgqDepWN7Luh2qreAvNepaZmGqKcim9L8hw",
+            "D42TjMjz5H7toPu5md5KBXreZkCSdZMEfLQwmBhJXvb1",
+            "YJbdN1mUHKvQGcCUK6t8ndUmZ3YPeaerUyhjEKzE5NV",
+            "CsftscgBmHuxc21r1FUCRXDFhfdzFJQTXTXSPwnGcZAa"
+          ],
+          "unresolved": []
+        }
+      ]
+    },
+    {
+      "index": 4,
+      "isTarget": true,
+      "name": "DECREASE_LIQUIDITY_V2",
+      "discriminator": "3a7fbc3e4f52c460",
+      "argBytes": 33,
+      "accounts": 15,
+      "accountsResolved": [
+        "CsftscgBmHuxc21r1FUCRXDFhfdzFJQTXTXSPwnGcZAa",
+        "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+        "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr",
+        "2sJWNe9HM3A8tDd5Q7NuCvLbhMdTeqzDhKqV4Pv9Td1p",
+        "T2HhqNDg6RcHfTQicUx4kAqic7Py9sekFC8sixquJEf",
+        "5tzySv6M5tJeFKuysvw8ENei3LkH23tX634fsYXn5vZ6",
+        "So11111111111111111111111111111111111111112",
+        "D42TjMjz5H7toPu5md5KBXreZkCSdZMEfLQwmBhJXvb1",
+        "NkWwsEcDcBd8oL1XYUnYdbYGxzc2K3KyYHdFvUMRYAd",
+        "YJbdN1mUHKvQGcCUK6t8ndUmZ3YPeaerUyhjEKzE5NV",
+        "FLqsiZSZpAoiuUVubAgueMEoDtKfkot32wcnEYLhobiU",
+        "E8yvEJPx1WgqDepWN7Luh2qreAvNepaZmGqKcim9L8hw",
+        "HNaqSemzSgL5jWDkqBik6X4syyqVknt3CQg9XXFJu7Xw",
+        "HNaqSemzSgL5jWDkqBik6X4syyqVknt3CQg9XXFJu7Xw"
+      ],
+      "unresolvedAccounts": [],
+      "inner": [
+        {
+          "program": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+          "isTarget": false,
+          "name": null,
+          "discriminator": "0c507b7405000000",
+          "argBytes": 2,
+          "accountCount": 4,
+          "accountsResolved": [
+            "FLqsiZSZpAoiuUVubAgueMEoDtKfkot32wcnEYLhobiU",
+            "So11111111111111111111111111111111111111112",
+            "NkWwsEcDcBd8oL1XYUnYdbYGxzc2K3KyYHdFvUMRYAd",
+            "CsftscgBmHuxc21r1FUCRXDFhfdzFJQTXTXSPwnGcZAa"
+          ],
+          "unresolved": []
+        },
+        {
+          "program": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+          "isTarget": false,
+          "name": null,
+          "discriminator": "0ce5c36c9a040000",
+          "argBytes": 2,
+          "accountCount": 4,
+          "accountsResolved": [
+            "E8yvEJPx1WgqDepWN7Luh2qreAvNepaZmGqKcim9L8hw",
+            "D42TjMjz5H7toPu5md5KBXreZkCSdZMEfLQwmBhJXvb1",
+            "YJbdN1mUHKvQGcCUK6t8ndUmZ3YPeaerUyhjEKzE5NV",
+            "CsftscgBmHuxc21r1FUCRXDFhfdzFJQTXTXSPwnGcZAa"
+          ],
+          "unresolved": []
+        }
+      ]
+    },
+    {
+      "index": 5,
+      "isTarget": true,
+      "name": "COLLECT_FEES_V2",
+      "discriminator": "cf755fbfe5b4e20f",
+      "argBytes": 1,
+      "accounts": 13,
+      "accountsResolved": [
+        "CsftscgBmHuxc21r1FUCRXDFhfdzFJQTXTXSPwnGcZAa",
+        "2sJWNe9HM3A8tDd5Q7NuCvLbhMdTeqzDhKqV4Pv9Td1p",
+        "T2HhqNDg6RcHfTQicUx4kAqic7Py9sekFC8sixquJEf",
+        "5tzySv6M5tJeFKuysvw8ENei3LkH23tX634fsYXn5vZ6",
+        "So11111111111111111111111111111111111111112",
+        "D42TjMjz5H7toPu5md5KBXreZkCSdZMEfLQwmBhJXvb1",
+        "NkWwsEcDcBd8oL1XYUnYdbYGxzc2K3KyYHdFvUMRYAd",
+        "FLqsiZSZpAoiuUVubAgueMEoDtKfkot32wcnEYLhobiU",
+        "YJbdN1mUHKvQGcCUK6t8ndUmZ3YPeaerUyhjEKzE5NV",
+        "E8yvEJPx1WgqDepWN7Luh2qreAvNepaZmGqKcim9L8hw",
+        "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+        "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr"
+      ],
+      "unresolvedAccounts": [],
+      "inner": [
+        {
+          "program": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+          "isTarget": false,
+          "name": null,
+          "discriminator": "0c00000000000000",
+          "argBytes": 2,
+          "accountCount": 4,
+          "accountsResolved": [
+            "FLqsiZSZpAoiuUVubAgueMEoDtKfkot32wcnEYLhobiU",
+            "So11111111111111111111111111111111111111112",
+            "NkWwsEcDcBd8oL1XYUnYdbYGxzc2K3KyYHdFvUMRYAd",
+            "CsftscgBmHuxc21r1FUCRXDFhfdzFJQTXTXSPwnGcZAa"
+          ],
+          "unresolved": []
+        },
+        {
+          "program": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+          "isTarget": false,
+          "name": null,
+          "discriminator": "0c176eed08000000",
+          "argBytes": 2,
+          "accountCount": 4,
+          "accountsResolved": [
+            "E8yvEJPx1WgqDepWN7Luh2qreAvNepaZmGqKcim9L8hw",
+            "D42TjMjz5H7toPu5md5KBXreZkCSdZMEfLQwmBhJXvb1",
+            "YJbdN1mUHKvQGcCUK6t8ndUmZ3YPeaerUyhjEKzE5NV",
+            "CsftscgBmHuxc21r1FUCRXDFhfdzFJQTXTXSPwnGcZAa"
+          ],
+          "unresolved": []
+        }
+      ]
+    },
+    {
+      "index": 6,
+      "isTarget": true,
+      "name": "SWAP_V2",
+      "discriminator": "2b04ed0b1ac91e62",
+      "argBytes": 35,
+      "accounts": 15,
+      "accountsResolved": [
+        "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+        "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr",
+        "2sJWNe9HM3A8tDd5Q7NuCvLbhMdTeqzDhKqV4Pv9Td1p",
+        "CsftscgBmHuxc21r1FUCRXDFhfdzFJQTXTXSPwnGcZAa",
+        "So11111111111111111111111111111111111111112",
+        "D42TjMjz5H7toPu5md5KBXreZkCSdZMEfLQwmBhJXvb1",
+        "NkWwsEcDcBd8oL1XYUnYdbYGxzc2K3KyYHdFvUMRYAd",
+        "FLqsiZSZpAoiuUVubAgueMEoDtKfkot32wcnEYLhobiU",
+        "YJbdN1mUHKvQGcCUK6t8ndUmZ3YPeaerUyhjEKzE5NV",
+        "E8yvEJPx1WgqDepWN7Luh2qreAvNepaZmGqKcim9L8hw",
+        "HNaqSemzSgL5jWDkqBik6X4syyqVknt3CQg9XXFJu7Xw",
+        "9uNtbDTFkoXNgWUPs7yuVcGMW1b4Yiw1zanNDfF2s7Pv",
+        "Bi5Lz2PTkCKJkbADUWaLbCq36V5EFvDo1UaqbSpLhQQc",
+        "2VMt1BvpoUAD2AbExfHiuFJanyNUsAuWRmMdY2MB7g4h"
+      ],
+      "unresolvedAccounts": [],
+      "inner": [
+        {
+          "program": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+          "isTarget": false,
+          "name": null,
+          "discriminator": "0c00000000000000",
+          "argBytes": 2,
+          "accountCount": 4,
+          "accountsResolved": [
+            "NkWwsEcDcBd8oL1XYUnYdbYGxzc2K3KyYHdFvUMRYAd",
+            "So11111111111111111111111111111111111111112",
+            "FLqsiZSZpAoiuUVubAgueMEoDtKfkot32wcnEYLhobiU",
+            "2sJWNe9HM3A8tDd5Q7NuCvLbhMdTeqzDhKqV4Pv9Td1p"
+          ],
+          "unresolved": []
+        },
+        {
+          "program": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+          "isTarget": false,
+          "name": null,
+          "discriminator": "0c00000000000000",
+          "argBytes": 2,
+          "accountCount": 4,
+          "accountsResolved": [
+            "E8yvEJPx1WgqDepWN7Luh2qreAvNepaZmGqKcim9L8hw",
+            "D42TjMjz5H7toPu5md5KBXreZkCSdZMEfLQwmBhJXvb1",
+            "YJbdN1mUHKvQGcCUK6t8ndUmZ3YPeaerUyhjEKzE5NV",
+            "CsftscgBmHuxc21r1FUCRXDFhfdzFJQTXTXSPwnGcZAa"
+          ],
+          "unresolved": []
+        }
+      ]
+    },
+    {
+      "index": 7,
+      "isTarget": true,
+      "name": "INCREASE_LIQUIDITY_V2",
+      "discriminator": "851d59df45eeb00a",
+      "argBytes": 33,
+      "accounts": 15,
+      "accountsResolved": [
+        "CsftscgBmHuxc21r1FUCRXDFhfdzFJQTXTXSPwnGcZAa",
+        "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+        "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr",
+        "2sJWNe9HM3A8tDd5Q7NuCvLbhMdTeqzDhKqV4Pv9Td1p",
+        "DF8D4ffCf1sgSG3BUdFGjHo13subcgiJXX4sPndLmtzn",
+        "BexkSwE2NA3mfj1Ze3iauGyy2Zw4XF58DdB6mcKQDPKP",
+        "So11111111111111111111111111111111111111112",
+        "D42TjMjz5H7toPu5md5KBXreZkCSdZMEfLQwmBhJXvb1",
+        "NkWwsEcDcBd8oL1XYUnYdbYGxzc2K3KyYHdFvUMRYAd",
+        "YJbdN1mUHKvQGcCUK6t8ndUmZ3YPeaerUyhjEKzE5NV",
+        "FLqsiZSZpAoiuUVubAgueMEoDtKfkot32wcnEYLhobiU",
+        "E8yvEJPx1WgqDepWN7Luh2qreAvNepaZmGqKcim9L8hw",
+        "HNaqSemzSgL5jWDkqBik6X4syyqVknt3CQg9XXFJu7Xw",
+        "HNaqSemzSgL5jWDkqBik6X4syyqVknt3CQg9XXFJu7Xw"
+      ],
+      "unresolvedAccounts": [],
+      "inner": [
+        {
+          "program": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+          "isTarget": false,
+          "name": null,
+          "discriminator": "0c00000000000000",
+          "argBytes": 2,
+          "accountCount": 4,
+          "accountsResolved": [
+            "NkWwsEcDcBd8oL1XYUnYdbYGxzc2K3KyYHdFvUMRYAd",
+            "So11111111111111111111111111111111111111112",
+            "FLqsiZSZpAoiuUVubAgueMEoDtKfkot32wcnEYLhobiU",
+            "2sJWNe9HM3A8tDd5Q7NuCvLbhMdTeqzDhKqV4Pv9Td1p"
+          ],
+          "unresolved": []
+        },
+        {
+          "program": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+          "isTarget": false,
+          "name": null,
+          "discriminator": "0c12eef2ae050000",
+          "argBytes": 2,
+          "accountCount": 4,
+          "accountsResolved": [
+            "YJbdN1mUHKvQGcCUK6t8ndUmZ3YPeaerUyhjEKzE5NV",
+            "D42TjMjz5H7toPu5md5KBXreZkCSdZMEfLQwmBhJXvb1",
+            "E8yvEJPx1WgqDepWN7Luh2qreAvNepaZmGqKcim9L8hw",
+            "2sJWNe9HM3A8tDd5Q7NuCvLbhMdTeqzDhKqV4Pv9Td1p"
+          ],
+          "unresolved": []
+        }
+      ]
+    },
+    {
+      "index": 8,
+      "isTarget": true,
+      "name": "INCREASE_LIQUIDITY_V2",
+      "discriminator": "851d59df45eeb00a",
+      "argBytes": 33,
+      "accounts": 15,
+      "accountsResolved": [
+        "CsftscgBmHuxc21r1FUCRXDFhfdzFJQTXTXSPwnGcZAa",
+        "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+        "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr",
+        "2sJWNe9HM3A8tDd5Q7NuCvLbhMdTeqzDhKqV4Pv9Td1p",
+        "T2HhqNDg6RcHfTQicUx4kAqic7Py9sekFC8sixquJEf",
+        "5tzySv6M5tJeFKuysvw8ENei3LkH23tX634fsYXn5vZ6",
+        "So11111111111111111111111111111111111111112",
+        "D42TjMjz5H7toPu5md5KBXreZkCSdZMEfLQwmBhJXvb1",
+        "NkWwsEcDcBd8oL1XYUnYdbYGxzc2K3KyYHdFvUMRYAd",
+        "YJbdN1mUHKvQGcCUK6t8ndUmZ3YPeaerUyhjEKzE5NV",
+        "FLqsiZSZpAoiuUVubAgueMEoDtKfkot32wcnEYLhobiU",
+        "E8yvEJPx1WgqDepWN7Luh2qreAvNepaZmGqKcim9L8hw",
+        "HNaqSemzSgL5jWDkqBik6X4syyqVknt3CQg9XXFJu7Xw",
+        "HNaqSemzSgL5jWDkqBik6X4syyqVknt3CQg9XXFJu7Xw"
+      ],
+      "unresolvedAccounts": [],
+      "inner": [
+        {
+          "program": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+          "isTarget": false,
+          "name": null,
+          "discriminator": "0ca618fd1b000000",
+          "argBytes": 2,
+          "accountCount": 4,
+          "accountsResolved": [
+            "NkWwsEcDcBd8oL1XYUnYdbYGxzc2K3KyYHdFvUMRYAd",
+            "So11111111111111111111111111111111111111112",
+            "FLqsiZSZpAoiuUVubAgueMEoDtKfkot32wcnEYLhobiU",
+            "2sJWNe9HM3A8tDd5Q7NuCvLbhMdTeqzDhKqV4Pv9Td1p"
+          ],
+          "unresolved": []
+        },
+        {
+          "program": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+          "isTarget": false,
+          "name": null,
+          "discriminator": "0c00000000000000",
+          "argBytes": 2,
+          "accountCount": 4,
+          "accountsResolved": [
+            "YJbdN1mUHKvQGcCUK6t8ndUmZ3YPeaerUyhjEKzE5NV",
+            "D42TjMjz5H7toPu5md5KBXreZkCSdZMEfLQwmBhJXvb1",
+            "E8yvEJPx1WgqDepWN7Luh2qreAvNepaZmGqKcim9L8hw",
+            "2sJWNe9HM3A8tDd5Q7NuCvLbhMdTeqzDhKqV4Pv9Td1p"
+          ],
+          "unresolved": []
+        }
+      ]
+    },
+    {
+      "index": 9,
+      "isTarget": false,
+      "name": null,
+      "discriminator": "0200000088130000",
+      "argBytes": 4,
+      "accounts": 2,
+      "accountsResolved": [
+        "2sJWNe9HM3A8tDd5Q7NuCvLbhMdTeqzDhKqV4Pv9Td1p",
+        "D2L6yPZ2FmmmTKPgzaMKdhu6EWZcTpLy1Vhx8uvZe7NZ"
+      ],
+      "unresolvedAccounts": [],
+      "inner": []
+    }
+  ]
+}
