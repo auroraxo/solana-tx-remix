@@ -2,7 +2,7 @@
  * Multi-program remix of a public Solana transaction.
  * source signature : 4HZWSH28NDUKq3iapstCVv1YGfogBSRYZnmjTZWPTjeDfULB9wTndqbnk5LnmHcQDxJnHQx1SW4zDxJDeRDeMwzQ
  * slot / blockTime : 459532722 / 2026-10-21T06:41:22.000Z
- * message version  : legacy
+ * message version  : v0
  * fee payer         : CYa4bLwboipDtag3dRVowqyD8uXswijKgbUpt65GBmQK
  *
  * Programs in this transaction:
@@ -30,7 +30,7 @@
 export const SOURCE_SIGNATURE = "4HZWSH28NDUKq3iapstCVv1YGfogBSRYZnmjTZWPTjeDfULB9wTndqbnk5LnmHcQDxJnHQx1SW4zDxJDeRDeMwzQ";
 export const SOURCE_SLOT = 459532722;
 export const FEE_PAYER = "CYa4bLwboipDtag3dRVowqyD8uXswijKgbUpt65GBmQK";
-export const RECIPE_VERSION = "legacy";
+export const RECIPE_VERSION = "v0";
 
 /** 19 static account keys, in message order. */
 export const ACCOUNTS = [

@@ -117,6 +117,37 @@ export function loadIdlFromGenerated(dir) {
   return map;
 }
 
+/**
+ * Map this tool's message-version label onto `@solana/kit`'s own `TransactionVersion`.
+ *
+ * The two vocabularies are not the same and were being conflated: the emitters interpolated
+ * `recipe.version` straight into `createTransactionMessage({ version: "..." })`, which emits
+ * `{ version: "v0" }` — and Kit's type is `'legacy' | 0`:
+ *
+ *   node_modules/@solana/transaction-messages/dist/types/transaction-message.d.ts:
+ *     export type TransactionVersion = 'legacy' | 0;
+ *
+ * So both shipped recipes emit a literal that fails to typecheck (TS2322). Nothing here had
+ * caught it because nothing compiles the generated code: there is no package.json and no tsc
+ * step in CI, and Kit's runtime does not validate the value, so an incorrect version passes
+ * silently until a reader pastes the recipe into a real project.
+ *
+ * v1 has no Kit expression at all in `@solana/kit@5`, which is reported rather than coerced:
+ * a `"legacy"` or `0` that silently downgrades a v1 message would produce a different
+ * transaction from the one the recipe was verified against — the byte-identity claim would
+ * survive while the rebuilt message would not be the original.
+ */
+export function kitVersionLiteral(version) {
+  if (version === "legacy") return { ok: true, literal: '"legacy"' };
+  if (version === "v0") return { ok: true, literal: "0" };
+  return {
+    ok: false,
+    reason: `message version ${JSON.stringify(version)} has no @solana/kit equivalent — ` +
+      `TransactionVersion is 'legacy' | 0, so rebuilding this message would produce ` +
+      `a different transaction from the one this recipe was verified against`,
+  };
+}
+
 /** Fetch the transaction and split it into the pieces a recipe needs. */
 export async function fetchTransaction(signature) {
   const tx = await rpc("getTransaction", [
@@ -145,14 +176,48 @@ export async function buildRecipe(tx, idlMap, { programId, programName, resolveL
   // Version 0 messages are identified by the presence of lookups, not by a `version` key:
   // getTransaction with encoding "json" omits it for v0, and relying on it alone silently
   // misreads real v0 transactions as legacy.
-  const isV0 = msg.version === 0 || luts.length > 0 || msg.loadedAddresses !== undefined;
+  // Message version, decided by FIELD PRESENCE, not by `msg.version`.
+  //
+  // `getTransaction` with encoding "json" returns no `version` key at all for ANY message
+  // version — measured on 1730 mainnet transactions, `msg.version !== undefined` held for
+  // 0 of them. The previous rule keyed on `msg.version === 0`, which therefore never
+  // fired, and fell back to `luts.length > 0`; that fallback silently mislabels the two
+  // cases the field actually distinguishes:
+  //
+  //   - v1 (`transactionConfig`, v1-only): ~37% of mainnet as of 21.10., misread as legacy.
+  //   - v0 with an EMPTY addressTableLookups array: 467 of 813 sampled v0 messages, also
+  //     misread as legacy, because an empty array has length 0.
+  //
+  // Both are wrong in the same direction and neither is cosmetic: `recipe.version` is
+  // written into the generated recipe as RECIPE_VERSION, and for the single-program
+  // emitter it is also interpolated into the Kit rebuild call as `version: "..."`.
+  //
+  // The rule below is field-presence only, and it is a total order over the three shapes:
+  //   transactionConfig present            -> v1     (v1-only field)
+  //   addressTableLookups key present      -> v0     (legacy messages omit the key)
+  //   neither                              -> legacy
+  // Empty-array v0 and v1 both keep their key/`transactionConfig` present, which is what
+  // makes this correct where a length test was not.
+  //
+  // `msg.version` is still honoured first if a future RPC does report it, so the explicit
+  // signal is never overridden by an inference.
+  let isV1 = false;
+  let isV0 = false;
+  if (msg.version === 1 || msg.transactionConfig !== undefined) {
+    isV1 = true;
+  } else if (msg.version === 0 || msg.addressTableLookups !== undefined) {
+    isV0 = true;
+  }
 
   const staticWritable = writableFlags(msg, keys.length);
 
   // Flatten the address space exactly as the runtime does.
   const addressSpace = [...keys];
   const lutTables = [];
-  if (isV0 && resolveLut && luts.length) {
+  // Not gated on the version guess: flattening is driven by the presence of lookup
+  // entries themselves. A v1 message carrying lookups would otherwise skip this block on
+  // a label it never claimed, and every index past the static keys would resolve to null.
+  if (resolveLut && luts.length) {
     // Flattening order: the runtime resolves lookup-table addresses as ALL writable
     // addresses first (tables in message order, indexes ascending), then ALL readonly.
     // Per-table `w, r` interleaving is indistinguishable for one table (the common case)
@@ -269,8 +334,9 @@ export async function buildRecipe(tx, idlMap, { programId, programName, resolveL
     signature: tx.transaction.signatures[0],
     slot: tx.slot,
     blockTime: tx.blockTime,
-    version: isV0 ? "v0" : "legacy",
+    version: isV1 ? "v1" : isV0 ? "v0" : "legacy",
     isV0,
+    isV1,
     recentBlockhash: msg.recentBlockhash,
     programId,
     programName,

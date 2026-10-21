@@ -18,6 +18,7 @@ import {
   loadIdlFromGenerated,
   renderInnerBytes,
   rpc,
+  kitVersionLiteral,
 } from "./remix.mjs";
 import { decodeArgs, schemaForInstruction } from "./args.mjs";
 import { buildMultiResolver, defaultMultiIdlDir } from "./dispatch.mjs";
@@ -129,6 +130,65 @@ function accountRoles(genDir, name) {
   }
 }
 
+/**
+ * The generated `buildRemixedTransaction()` helper, as source lines.
+ *
+ * The version value is Kit's, not ours: `@solana/kit`'s TransactionVersion is `'legacy' | 0`,
+ * so interpolating this tool's own label "v0" emitted a literal that does not typecheck
+ * (TS2322: Type '"v0"' is not assignable to type 'TransactionVersion'). Kit's runtime does not
+ * validate it, which is why it survived — nothing in this repo compiles the generated code
+ * (no package.json, no tsc step in CI), so the error only surfaced for a reader who pasted a
+ * recipe into a real project.
+ *
+ * A v1 message has no Kit 5 equivalent. Emitting a downgrade (`0` or `'legacy'`) would return
+ * a message that is not the one the verifier checked byte for byte — the recipe's claim would
+ * stay true while the rebuilt message stopped being the original. So for v1 the helper is
+ * omitted and its absence is stated in the file, instead of shipping a function that rebuilds
+ * the wrong thing and reads as though it worked.
+ */
+function kitRebuildHelperLines(version) {
+  const kitVersion = kitVersionLiteral(version);
+  if (!kitVersion.ok) {
+    console.error(`note: no buildRemixedTransaction() emitted - ${kitVersion.reason}`);
+    return [
+      `/**`,
+      ` * buildRemixedTransaction() is deliberately absent from this recipe.`,
+      ` *`,
+      ` * ${kitVersion.reason}.`,
+      ` *`,
+      ` * Emitting a downgraded version anyway would return a message that is not the one the`,
+      ` * verifier checked byte for byte. The instruction bytes above are still exact.`,
+      ` */`,
+    ];
+  }
+  return [
+    `/**`,
+    ` * Reassemble the message the original transaction carried.`,
+    ` *`,
+    ` * Instruction account indexes address the FLAT address space, not ACCOUNTS alone, so`,
+    ` * a v0 recipe would silently reference undefined accounts if it used ACCOUNTS directly.`,
+    ` * That exact bug is what ADDRESS_SPACE_SIZE and the verifier exist to prevent.`,
+    ` */`,
+    `export function buildRemixedTransaction() {`,
+    `  let message = setTransactionMessageFeePayer(createTransactionMessage({ version: ${kitVersion.literal} }), FEE_PAYER as any);`,
+    `  for (const key of Object.keys(INSTRUCTION_BYTES)) {`,
+    `    const ix = INSTRUCTION_BYTES[key as keyof typeof INSTRUCTION_BYTES];`,
+    `    for (const index of ix.accounts) {`,
+    `      if (index >= ADDRESS_SPACE_SIZE) {`,
+    `        throw new Error(\`instruction \${key} references address index \${index}, beyond the resolved address space \${ADDRESS_SPACE_SIZE}\`);`,
+    `      }`,
+    `    }`,
+    `    message = appendTransactionMessageInstruction(message, {`,
+    `      programAddress: ix.program,`,
+    `      accounts: ix.accounts.map((i) => ({ address: ADDRESSES[i], role: 0 as any })),`,
+    `      data: Uint8Array.from(atob(ix.data), (c) => c.charCodeAt(0)),`,
+    `    } as any);`,
+    `  }`,
+    `  return message;`,
+    `}`,
+  ];
+}
+
 const lines = [];
 lines.push(`/**`);
 lines.push(` * Remixed from a public Solana transaction. No private key was used or needed.`);
@@ -196,7 +256,7 @@ lines.push(``);
 lines.push(`/**`);
 lines.push(` * Flat address space: static keys, then each lookup table's writable entries, then`);
 lines.push(` * its readonly entries. Instruction account indexes address this array, which is why`);
-lines.push(` * ${recipe.version === "v0" ? "this transaction" : "a legacy transaction"} needs the table contents.`);
+lines.push(` * ${recipe.version === "v0" ? "this transaction" : "a non-v0 transaction"} needs the table contents.`);
 lines.push(` */`);
 lines.push(`export const LOOKUP_TABLE_ADDRESSES = [`);
 // Flat runtime order: all tables' writable addresses, then all tables' readonly.
@@ -232,30 +292,7 @@ lines.push(...renderInnerBytes(recipe));
 lines.push(`/** Flat address space: static keys, then each table's writable, then readonly entries. */`);
 lines.push(`const ADDRESSES = [...ACCOUNTS, ...LOOKUP_TABLE_ADDRESSES] as const;`);
 lines.push(``);
-lines.push(`/**`);
-lines.push(` * Reassemble the message the original transaction carried.`);
-lines.push(` *`);
-lines.push(` * Instruction account indexes address the FLAT address space, not ACCOUNTS alone, so`);
-lines.push(` * a v0 recipe would silently reference undefined accounts if it used ACCOUNTS directly.`);
-lines.push(` * That exact bug is what ADDRESS_SPACE_SIZE and the verifier exist to prevent.`);
-lines.push(` */`);
-lines.push(`export function buildRemixedTransaction() {`);
-lines.push(`  let message = setTransactionMessageFeePayer(createTransactionMessage({ version: "${recipe.version}" }), FEE_PAYER as any);`);
-lines.push(`  for (const key of Object.keys(INSTRUCTION_BYTES)) {`);
-lines.push(`    const ix = INSTRUCTION_BYTES[key as keyof typeof INSTRUCTION_BYTES];`);
-lines.push(`    for (const index of ix.accounts) {`);
-lines.push(`      if (index >= ADDRESS_SPACE_SIZE) {`);
-lines.push(`        throw new Error(\`instruction \${key} references address index \${index}, beyond the resolved address space \${ADDRESS_SPACE_SIZE}\`);`);
-lines.push(`      }`);
-lines.push(`    }`);
-lines.push(`    message = appendTransactionMessageInstruction(message, {`);
-lines.push(`      programAddress: ix.program,`);
-lines.push(`      accounts: ix.accounts.map((i) => ({ address: ADDRESSES[i], role: 0 as any })),`);
-lines.push(`      data: Uint8Array.from(atob(ix.data), (c) => c.charCodeAt(0)),`);
-lines.push(`    } as any);`);
-lines.push(`  }`);
-lines.push(`  return message;`);
-lines.push(`}`);
+lines.push(...kitRebuildHelperLines(recipe.version));
 
 fs.writeFileSync(recipePath, lines.join("\n") + "\n");
 

@@ -371,7 +371,7 @@ const ADDRESSES = [...ACCOUNTS, ...LOOKUP_TABLE_ADDRESSES] as const;
  * That exact bug is what ADDRESS_SPACE_SIZE and the verifier exist to prevent.
  */
 export function buildRemixedTransaction() {
-  let message = setTransactionMessageFeePayer(createTransactionMessage({ version: "v0" }), FEE_PAYER as any);
+  let message = setTransactionMessageFeePayer(createTransactionMessage({ version: 0 }), FEE_PAYER as any);
   for (const key of Object.keys(INSTRUCTION_BYTES)) {
     const ix = INSTRUCTION_BYTES[key as keyof typeof INSTRUCTION_BYTES];
     for (const index of ix.accounts) {

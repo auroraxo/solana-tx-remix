@@ -149,6 +149,35 @@ const keys = tx.transaction.message.accountKeys.map((k) => k.pubkey ?? k);
 
 const failures = [];
 
+// 0z. The recipe's own message-version claim, checked against the chain.
+//
+// RECIPE_VERSION is written by both emitters and was read by nothing. Two of the four shipped
+// recipes carried a false one: out/remix-multi-4HZWSH28.ts declared `legacy` for a message that
+// is v0, and every v1 transaction (~37% of mainnet) is reported `legacy` by a classifier that
+// keys on `msg.version === 0` — a field `getTransaction` omits for all three versions (measured
+// on 1730 mainnet transactions, `msg.version !== undefined` for 0 of them).
+//
+// The claim is part of what a recipe asserts about the transaction, and a recipe that names the
+// wrong message version is a recipe describing a different wire format from the one verified.
+// Byte-identity does not see it: the instructions are identical either way.
+//
+// The rule is field-presence, deliberately not a length test — an empty `addressTableLookups`
+// array is still a v0 message, and 467 of 813 sampled v0 messages have exactly that.
+{
+  const m = tx.transaction.message;
+  const chainVersion =
+    m.transactionConfig !== undefined ? "v1" : m.addressTableLookups !== undefined ? "v0" : "legacy";
+  const claimed = src.match(/export const RECIPE_VERSION = "([^"]+)"/)?.[1] ?? null;
+  if (claimed === null) {
+    failures.push(`recipe declares no RECIPE_VERSION, so its message version is unverified`);
+  } else if (claimed !== chainVersion) {
+    failures.push(
+      `recipe claims message version ${claimed}, chain is ${chainVersion} ` +
+        `(${chainVersion === "v1" ? "transactionConfig present" : chainVersion === "v0" ? "addressTableLookups key present" : "neither v0 nor v1 field present"})`,
+    );
+  }
+}
+
 // 0. Address resolution: a v0 instruction's account indexes address a flat space that
 //    includes lookup-table entries. If any index fails to resolve to a real address the
 //    recipe contains placeholders, and a byte-compare of the raw indexes will still pass.

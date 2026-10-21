@@ -58,7 +58,7 @@
     "DF1ow4tspfHX9JwWJsAb9epbkA8hmpSEAtxXy1V27QBH"
   ],
   "addressSpaceSize": 19,
-  "version": "legacy",
+  "version": "v0",
   "lookupTables": [],
   "instructions": [
     {

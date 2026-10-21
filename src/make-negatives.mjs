@@ -228,6 +228,26 @@ const specs = [
     // weaker statement of the same fact, it is a missing one.
     mutate: (s) => unlabelInstruction(s, 2),
   },
+  {
+    from: "remix-multi-4HZWSH28.ts",
+    to: "wrong-version.ts",
+    why: "message version mislabelled `legacy` while every instruction byte is correct",
+    // This is the mutation the tool actually shipped. RECIPE_VERSION was written by both
+    // emitters and read by nothing, and the classifier it came from keyed on
+    // `msg.version === 0` — a field getTransaction omits for every version — so it fell
+    // through to `addressTableLookups.length > 0` and called a v0 message with an empty
+    // lookup array (and every v1 message) `legacy`.
+    //
+    // Byte-identity cannot see this: the instructions are identical whatever the message
+    // version is called. The recipe then describes a different wire format from the one it
+    // was verified against, which is the same class of defect as a withheld instruction
+    // name — a true-sounding claim about the transaction that the chain does not support.
+    mutate: (s) =>
+      s.replace(
+        /export const RECIPE_VERSION = "v0";/,
+        'export const RECIPE_VERSION = "legacy";',
+      ),
+  },
 ];
 
 for (const spec of specs) {
