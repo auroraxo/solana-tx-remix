@@ -176,7 +176,6 @@ export function loadProgramDispatch(dir) {
       }
     }
   }
-  byProgram.dropped = dropped;
   LAST_LOAD = { dropped, files: files.length };
   return byProgram;
 }
