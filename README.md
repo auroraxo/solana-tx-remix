@@ -127,3 +127,24 @@ label through the same IDL tables), each passed.
 - Compile fees, prioritization fees and blockhash are captured, not remixed.
 - Inner (CPI) instructions are recorded for verification only. Rebuilding the message must
   not append them — they are the parent program's effects, not parts of the signed message.
+
+## Data provenance
+
+- **`idl/multi/*.json`** — instruction IDLs for the programs the recipes in `out/` call
+  (Jupiter, DFlow, BisonFi, Token-2022, Aquifer, Solfi, …). These describe deployed
+  mainnet programs; the loader in `src/idl-bitquery.mjs` follows the shape shipped by
+  `bitquery/solana-idl-lib`.
+- **`out/*.ts`, `out/*.json`** — generated from public mainnet RPC. Everything in them is
+  already public chain data: real signatures, real program addresses, real instruction
+  bytes.
+- **`neg/*.ts`** — generated from `out/` by `src/make-negatives.mjs`; mutated copies of the
+  passing recipes, not independent transactions.
+
+No Whirlpool-generated codecs are vendored here. The Orca repository relicensed in
+February 2025, so the single-program path asks you to point `IDL_GEN_DIR` at codecs you
+generated yourself rather than shipping someone else's.
+
+## License
+
+MIT — see `LICENSE`. The programs named in the recipes and IDLs are third-party code;
+this repository does not claim them.
