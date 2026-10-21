@@ -1,0 +1,61 @@
+name: acceptance
+
+# The claim this repo makes is verifiable, so it is verified — on every push, and on a
+# schedule so that a quiet repo cannot rot silently (an RPC that starts rate-limiting, a
+# chain that starts returning a different shape, a control that stops failing: all invisible
+# until someone runs the check by hand).
+#
+# The verdict comes from one place: ci/acceptance.mjs, the same script a fresh clone runs.
+# This file only decides when to run it.
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  schedule:
+    - cron: "23 4 * * 1" # Mondays 04:23 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: acceptance-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  acceptance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24" # README: Node.js 24+
+
+      # No IDL_GEN_DIR and no SOLANA_RPC: this is exactly a fresh clone's environment.
+      # src/verify-recipe.mjs re-fetches each transaction from the public mainnet RPC and
+      # fails unless the recipe reproduces it byte for byte; ci/acceptance.mjs additionally
+      # requires each negative control to fail for its own mutation, not for the
+      # environment's. Network failures are retried there and, if they persist, reported as
+      # "no verdict" rather than mistaken for a pass.
+      - name: run acceptance
+        run: node ci/acceptance.mjs
+
+      # A run that proves nothing must not look like a run that proved everything. If the
+      # script exits 0 without having judged every control, that is a defect in the script,
+      # not a green day.
+      - name: no control may go unjudged
+        run: |
+          declared=$(grep -cE '^\s+to: "' src/make-negatives.mjs)
+          present=$(ls neg/*.ts | wc -l)
+          echo "declared=$declared present=$present"
+          if [ "$declared" -ne "$present" ]; then
+            echo "control inventory and its declaration table disagree"
+            exit 1
+          fi
+          if [ "$present" -eq 0 ]; then
+            echo "no controls to judge"
+            exit 1
+          fi

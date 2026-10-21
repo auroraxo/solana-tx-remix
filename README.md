@@ -24,6 +24,26 @@ of the public `api.mainnet-beta.solana.com`.
 
 No private key, no wallet, no signing is involved at any point.
 
+## Continuous integration
+
+`node ci/acceptance.mjs` is the whole verdict, and GitHub Actions runs it on every push
+(`.github/workflows/acceptance.yml`). It asserts three things, each of which can fail:
+
+1. **`neg/` is reproducible from `out/`** — regenerating the controls must change nothing.
+   If it does, a control on disk is a mutation of a recipe that is no longer there: it still
+   fails, but it no longer proves what its declaration says it proves.
+2. **Every recipe in `out/` reproduces its transaction** byte for byte against a fresh RPC
+   fetch. A recipe that only fails because the Whirlpool codecs are absent (they are not
+   vendored) is reported as `SKIP`, never as a pass.
+3. **Every control fails for its own mutation** — the source recipe is run first and its
+   failures become the baseline; a control must exceed it. A control that fails only for
+   reasons its source already fails for proves nothing, and an unreachable RPC is reported
+   as "no verdict" rather than mistaken for a pass.
+
+The same script runs in CI and by hand, so a green badge and a local run are the same
+claim. The `no control may go unjudged` step fails the build if the control table and the
+`neg/` directory ever disagree, so a control cannot quietly go untested.
+
 `remix-from-signature.mjs` targets one program (Whirlpool) and names its fields from the
 program's generated codecs. It needs those codecs on disk — they are not shipped here —
 via `--idl <dir>` or `IDL_GEN_DIR`; without them it exits with a message naming the
