@@ -298,11 +298,12 @@ for (const ix of fromRecipe) {
 console.log(`on chain    : ${onChain.length} instructions, ${keys.length} static accounts`);
 console.log(`decoded     : ${decodedCount}/${fromRecipe.length} with generated IDL codecs`);
 
-if (failures.length) {
-  console.log(`FAIL (${failures.length}):`);
-  failures.forEach((f) => console.log(`  - ${f}`));
-  process.exit(1);
-}
+// No early exit here. Every acceptance check below must run before any verdict is printed:
+// this block used to `process.exit(1)` whenever a top-level check had already failed, which
+// meant criteria 6 (LUT ground truth) and 7 (CPI) were never reached. A control whose only
+// mutation is a dropped CPI then reported nothing about that CPI once any unrelated failure
+// existed — it failed for a reason unrelated to its mutation, the exact failure mode this
+// tool exists to rule out. Collect all failures, then report once at the end.
 
 /**
  * CPI byte verification — the top-level byte compare above does not cover inner

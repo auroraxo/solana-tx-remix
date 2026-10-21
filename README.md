@@ -75,8 +75,8 @@ evidence of nothing; the earlier hand-copied set did exactly that (they failed o
 |---|---|---|
 | `arg-flip` | one instruction byte flipped | byte mismatch (1) |
 | `dropped` | last instruction removed | instruction count (1) |
-| `no-lut` | lookup-table contents stripped | unresolvable account index (83) |
-| `wrong-sig` | recipe re-labelled as another signature | instructions absent on chain (13) |
+| `no-lut` | lookup-table contents stripped | unresolvable account index (83) + LUT ground truth (1) |
+| `wrong-sig` | recipe re-labelled as another signature | instructions absent on chain (13) + address space (1) |
 | `multi-arg-flip` | same flip on a multi-program recipe | byte mismatch (1) |
 | `inner-flip` | one CPI byte flipped | cpi byte mismatch (1) |
 | `inner-dropped` | one CPI removed | cpi present in chain, missing from recipe (1) |
@@ -88,10 +88,15 @@ evidence of nothing; the earlier hand-copied set did exactly that (they failed o
 All eleven fail. Eight fail with exactly one reported failure, attributable to the
 mutation alone. The other three carry larger counts for specific reasons:
 `native-name-swap` reports 2 — the swap wrong-labels both instructions it touches, which
-is one declared mutation with two affected rows; `no-lut` reports 83 unresolved indexes
-(every index past the static keys, once the table contents are gone); `wrong-sig` reports
-13 (instruction count plus one mismatch per instruction, against a transaction with a
-different shape). The three recipes in `out/remix-multi-*` pass; the fourth
+is one declared mutation with two affected rows; `no-lut` reports 84 (83 unresolved
+indexes — every index past the static keys, once the table contents are gone — plus the
+LUT ground-truth check that can now see the gap); `wrong-sig` reports 14 (instruction
+count, one mismatch per instruction against a transaction with a different shape, and
+the declared address space). The last two rows of that count only became reachable
+after the early-exit fix described above: criteria 6 and 7 used to be skipped whenever a
+top-level check had already failed, so a control whose mutation is in the LUT or a CPI
+reported nothing about it. Three of the four recipes in `out/` pass on a fresh clone;
+the fourth
 (`out/remix-6754RLWd.ts`, single-program Whirlpool) passes once the Whirlpool codec
 directory is supplied via `--idl` or `IDL_GEN_DIR`.
 
