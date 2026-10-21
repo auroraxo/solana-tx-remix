@@ -29,7 +29,7 @@ No private key, no wallet, no signing is involved at any point.
 ## Continuous integration
 
 `node ci/acceptance.mjs` is the whole verdict, and GitHub Actions runs it on every push
-(`.github/workflows/acceptance.yml`). It asserts four things, each of which can fail:
+(`.github/workflows/acceptance.yml`). It asserts five things, each of which can fail:
 
 1. **Every shipped IDL in `idl/multi/` binds a program** — the loader reports any file it
    cannot use, rather than dropping it silently. This is the check that was missing when
@@ -39,18 +39,25 @@ No private key, no wallet, no signing is involved at any point.
 2. **`neg/` is reproducible from `out/`** — regenerating the controls must change nothing.
    If it does, a control on disk is a mutation of a recipe that is no longer there: it still
    fails, but it no longer proves what its declaration says it proves.
-2. **Every recipe in `out/` reproduces its transaction** byte for byte against a fresh RPC
+3. **Every recipe in `out/` reproduces its transaction** byte for byte against a fresh RPC
    fetch. A recipe that only fails because the Whirlpool codecs are absent (they are not
    vendored) is reported as `SKIP`, never as a pass.
-3. **Every control fails for its own mutation** — the source recipe is run first and its
+4. **Every control fails for its own mutation** — the source recipe is run first and its
    failures become the baseline; a control must exceed it. A control that fails only for
    reasons its source already fails for proves nothing, and an unreachable RPC is reported
    as "no verdict" rather than mistaken for a pass.
-4. **No recipe withholds a name the shipped IDL set has** — checked inside
-   `src/verify-recipe.mjs`, so it applies to `out/` and to `neg/` alike. The 14 controls
-   above include two that exist specifically for it: `idl-name-withheld-top` and
-   `idl-name-withheld-cpi` blank a label the table can fill, which before this rule was
-   indistinguishable from a correct recipe.
+5. **Two claims a recipe makes about its own transaction are re-derived from the chain**,
+   inside `src/verify-recipe.mjs`, so both apply to `out/` and to `neg/` alike:
+   - *Instruction names.* No recipe withholds a name the shipped IDL set has. The two
+     controls `idl-name-withheld-top` and `idl-name-withheld-cpi` blank a label the table
+     can fill, which before this rule was indistinguishable from a correct recipe.
+   - *Message version.* `RECIPE_VERSION` is checked against the actual message fields.
+     It was written by both emitters and read by nothing, and a v0 recipe shipped
+     declaring `legacy`: the classifier keyed on `msg.version === 0`, a field
+     `getTransaction` omits for all three versions, so it fell through to a test that
+     called every v1 message and every v0-with-empty-lookup-array message `legacy`.
+     `neg/wrong-version` is that mislabelling. The instruction bytes are identical
+     whichever name is used, which is why byte-identity never saw it.
 
 The same script runs in CI and by hand, so a green badge and a local run are the same
 claim. The `no control may go unjudged` step fails the build if the control table and the
@@ -201,6 +208,19 @@ other's presence.
   with the other's width fails silently — it never errors, it just names nothing. The two
   enums in `src/native.mjs` are pinned to `anza-xyz/solana-sdk@8db406e` and each is
   corroborated by a second independent source, recorded alongside the pin.
+- The message version is decided from field presence, not from `msg.version`:
+  `getTransaction` omits that key for legacy, v0 and v1 alike (measured on 1730 mainnet
+  transactions, present for 0 of them), so a rule keyed on it never fired. `transactionConfig`
+  means v1, a present `addressTableLookups` key means v0, neither means legacy. Presence,
+  not length: a v0 message whose lookup array is *empty* is still v0, and 467 of 813 sampled
+  v0 messages are exactly that. v1 is roughly 37% of mainnet — a single-program recipe of it
+  now verifies byte for byte, which it did not before, because it was being called legacy.
+- The generated `buildRemixedTransaction()` helper takes its version from `@solana/kit`, not
+  from this tool's label: Kit's `TransactionVersion` is `'legacy' | 0`, so the emitter used to
+  write `version: "v0"`, which does not typecheck. Nothing here compiles the generated code
+  and Kit's runtime does not validate the value, so the error only reached a reader pasting
+  a recipe into a real project. A v1 message has no Kit 5 equivalent, so a v1 recipe omits the
+  helper and states why, rather than downgrading to a message the verifier never checked.
 - Per-program IDLs declare their program address in different places: the shank-origin
   ones (`aquifer`, `bisonfi`, `solfi`, `spl_token_2022`) put it in `metadata.address`, the
   rest at the top level. `parseIdlJson` reads both. It did not until 21.10, and
