@@ -1,5 +1,7 @@
 # Transaction Remix
 
+[![acceptance](https://github.com/auroraxo/solana-tx-remix/actions/workflows/acceptance.yml/badge.svg)](https://github.com/auroraxo/solana-tx-remix/actions/workflows/acceptance.yml)
+
 One public transaction signature in, one editable, verifiable recipe out.
 
 **Status:** early, run from source. No npm package, no dependencies — a recipe is a plain
