@@ -18,6 +18,7 @@ import fs from "node:fs";
 import { b58decode, fetchTransaction, parseInnerBytes, rpc } from "./remix.mjs";
 import { decodeArgs, schemaForInstruction } from "./args.mjs";
 import { encodeNative, decodeNative, isNativeProgram, isNativeName, nativeProgramLabel } from "./native.mjs";
+import { buildMultiResolver, multiIdlDirPresent, multiIdlProgramCount } from "./dispatch.mjs";
 
 const recipePath = process.argv[2];
 if (!recipePath) {
@@ -39,6 +40,27 @@ const src = fs.readFileSync(recipePath, "utf8");
  * check: a name without a codec means the arg fields can drift silently.
  */
 const isMultiProgram = /export const MULTI_PROGRAM = true;/.test(src);
+
+/**
+ * For multi-program recipes the labels are re-derived from the shipped IDL tables instead of
+ * being taken on trust. The count in the named-field section below used to be unconditional
+ * (`decodedCount++`) on the reasoning that "byte identity is the binding check" — true for the
+ * BYTES, and irrelevant for the LABEL. Relabelling a dflow `swap2` as `swap` left every byte
+ * identical and every check green: the recipe then reads as a different transaction with the
+ * same payload, which is the exact class of defect this tool exists to catch. Both sides of
+ * the label now come from dispatch.mjs, so emitter and verifier cannot disagree about what a
+ * name means.
+ */
+const multiNameFor = isMultiProgram ? buildMultiResolver() : null;
+let multiProgramCount = 0;
+if (isMultiProgram) {
+  if (!multiIdlDirPresent()) {
+    console.log(`FAIL (1):`);
+    console.log(`  - multi-program recipe claims instruction names, but the IDL table is missing; labels cannot be checked`);
+    process.exit(1);
+  }
+  multiProgramCount = multiIdlProgramCount();
+}
 
 const signature = src.match(/SOURCE_SIGNATURE = "([1-9A-HJ-NP-Za-km-z]+)"/)?.[1];
 if (!signature) {
@@ -240,7 +262,22 @@ for (const ix of fromRecipe) {
     // Multi recipes name instructions from several programs' IDL JSONs. Expanding args
     // through a single program's codec directory (GEN_DIR = Whirlpool) would decode
     // foreign bytes with the wrong schema — a name like `swap` exists in both. Byte
-    // identity above remains the binding check; count named instructions only.
+    // identity above remains the binding check for the PAYLOAD; the LABEL is checked
+    // separately here by re-resolving the same discriminator through dispatch.mjs and
+    // requiring the same name back.
+    const hit = multiNameFor(ix.program, ix.data);
+    if (!hit) {
+      failures.push(
+        `ix ${ix.index}: claims ${ix.name} on ${ix.program}, but its bytes match no known instruction of that program`,
+      );
+      continue;
+    }
+    if (hit.name !== ix.name) {
+      failures.push(
+        `ix ${ix.index}: bytes resolve to ${hit.name} on ${ix.program}, recipe claims ${ix.name}`,
+      );
+      continue;
+    }
     decodedCount++;
     continue;
   }
@@ -328,6 +365,19 @@ if (failures.length) {
       if (match.program !== resolvedProgramId) {
         failures.push(`cpi (parent ix ${group.index}, slot ${i}): program ${match.program} != chain ${resolvedProgramId}`);
         cpiFailures++;
+      }
+      // Label check, same rule as the top-level loop: bytes prove the payload, the resolver
+      // proves the name. An inner instruction carries no other evidence — it is not in the
+      // message — so a mislabelled CPI is invisible unless the same dispatch table is asked
+      // to name it again here.
+      if (isMultiProgram && match.name) {
+        const hit = multiNameFor(match.program, match.data);
+        if (!hit || hit.name !== match.name) {
+          failures.push(
+            `cpi (parent ix ${group.index}, slot ${i}): bytes resolve to ${hit ? hit.name : "(no known instruction)"}, recipe claims ${match.name}`,
+          );
+          cpiFailures++;
+        }
       }
       if (JSON.stringify(match.accounts) !== JSON.stringify(chainIx.accounts)) {
         failures.push(`cpi (parent ix ${group.index}, slot ${i}): account index list differs from chain`);

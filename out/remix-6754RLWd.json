@@ -16,17 +16,17 @@
     "report": [
       {
         "index": 0,
-        "discriminator": "02801a0600",
+        "discriminator": "02",
         "discriminatorMatches": true,
-        "argBytes": 0,
+        "argBytes": 4,
         "argBytesMatch": true,
         "accountsMatch": true
       },
       {
         "index": 1,
-        "discriminator": "03e8030000000000",
+        "discriminator": "03",
         "discriminatorMatches": true,
-        "argBytes": 1,
+        "argBytes": 8,
         "argBytesMatch": true,
         "accountsMatch": true
       },
@@ -88,9 +88,9 @@
       },
       {
         "index": 9,
-        "discriminator": "0200000088130000",
+        "discriminator": "02000000",
         "discriminatorMatches": true,
-        "argBytes": 4,
+        "argBytes": 8,
         "argBytesMatch": true,
         "accountsMatch": true
       }
@@ -120,9 +120,9 @@
     {
       "index": 0,
       "isTarget": false,
-      "name": null,
-      "discriminator": "02801a0600",
-      "argBytes": 0,
+      "name": "SetComputeUnitLimit",
+      "discriminator": "02",
+      "argBytes": 4,
       "accounts": 0,
       "accountsResolved": [],
       "unresolvedAccounts": [],
@@ -131,9 +131,9 @@
     {
       "index": 1,
       "isTarget": false,
-      "name": null,
-      "discriminator": "03e8030000000000",
-      "argBytes": 1,
+      "name": "SetComputeUnitPrice",
+      "discriminator": "03",
+      "argBytes": 8,
       "accounts": 0,
       "accountsResolved": [],
       "unresolvedAccounts": [],
@@ -544,9 +544,9 @@
     {
       "index": 9,
       "isTarget": false,
-      "name": null,
-      "discriminator": "0200000088130000",
-      "argBytes": 4,
+      "name": "Transfer",
+      "discriminator": "02000000",
+      "argBytes": 8,
       "accounts": 2,
       "accountsResolved": [
         "2sJWNe9HM3A8tDd5Q7NuCvLbhMdTeqzDhKqV4Pv9Td1p",

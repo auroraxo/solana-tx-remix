@@ -34,11 +34,25 @@ function flag(name, fallback) {
 }
 
 const WHIRLPOOL_PROGRAM = "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc";
+// Resolve the Whirlpool-generated codec directory: an explicit --idl wins, then IDL_GEN_DIR
+// (the same env var verify-recipe.mjs reads), then a hard-coded sibling-repo path kept for
+// the author's local machine. A fresh clone has none of these by default; running with
+// the default then crashes with ENOENT, which reads as "the tool is broken on a fresh
+// machine". The error message below names IDL_GEN_DIR so the reader can recover.
 const idlDir = flag(
   "--idl",
-  path.resolve(process.env.HOME, "github_repos/orca-whirlpools-recon/ts-sdk/client/src/generated/instructions"),
+  process.env.IDL_GEN_DIR ||
+    path.resolve(process.env.HOME, "github_repos/orca-whirlpools-recon/ts-sdk/client/src/generated/instructions"),
 );
 const outDir = flag("--out", path.resolve("out"));
+
+if (!fs.existsSync(idlDir)) {
+  console.error(`Whirlpool codec directory not found: ${idlDir}`);
+  console.error(`Set IDL_GEN_DIR to a directory of Codama-generated <NAME>_DISCRIMINATOR .ts files`);
+  console.error(`(e.g. a fork of orca-so/whirlpools ts-sdk/client/src/generated/instructions),`);
+  console.error(`or pass --idl <dir>. Multi-program recipes in out/remix-multi-* do not need this.`);
+  process.exit(2);
+}
 
 const tx = await fetchTransaction(signature);
 const idlMap = loadIdlFromGenerated(idlDir);

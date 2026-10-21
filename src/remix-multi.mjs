@@ -29,6 +29,7 @@ import {
 } from "./remix.mjs";
 import { decodeArgs, schemaForInstruction } from "./args.mjs";
 import { loadProgramDispatch, makeNameResolver, parseIdlJson } from "./idl-bitquery.mjs";
+import { buildMultiResolver, defaultMultiIdlDir } from "./dispatch.mjs";
 
 const args = process.argv.slice(2);
 const signature = args.find((a) => !a.startsWith("--"));
@@ -42,7 +43,7 @@ function flag(name, fallback) {
   const i = args.indexOf(name);
   return i >= 0 && args[i + 1] ? args[i + 1] : fallback;
 }
-const multiIdlDir = flag("--multi-idl", path.resolve("idl/multi"));
+const multiIdlDir = flag("--multi-idl", defaultMultiIdlDir());
 const genIdlDir = flag(
   "--gen-idl",
   path.resolve(
@@ -59,18 +60,16 @@ const tx = await fetchTransaction(signature);
 // match so `buildRecipe` slices the right number of bytes off the data buffer; doing
 // this per-program is what keeps a Token-2022 `initializeAccount` (tag=0x01) from being
 // read as an Aquifer `swap` (also tag=0x01) when both appear in the same transaction.
-const bqDispatch = loadProgramDispatch(multiIdlDir);
-const anchorMap = loadIdlFromGenerated(genIdlDir);
-
-// Codama modules target one specific program (Whirlpool); associate them by address.
-const anchorExtra = new Map();
-{
-  const HARDCODED_PROGRAM = "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc";
-  const p = { anchor: new Map(), tag: new Map(), sources: new Set([genIdlDir]) };
-  for (const [k, v] of anchorMap) p.anchor.set(k, { ...v, scheme: "anchor", tagLen: 8, args: [] });
-  anchorExtra.set(HARDCODED_PROGRAM, p);
-}
-const nameFor = makeNameResolver(bqDispatch, anchorExtra);
+// Build a per-program dispatch table over the bitquery JSON IDLs we ship, layered with
+// Anchor Codama modules (Whirlpool) per program. The resolver comes from dispatch.mjs so
+// that verify-recipe.mjs re-derives labels from the SAME tables this emitter wrote them
+// from — the verifier used to count multi-program names without checking them, and a
+// label changed after the fact sailed through.
+const nameFor = buildMultiResolver({
+  multiIdlDir,
+  genIdlDir: flag("--gen-idl", process.env.IDL_GEN_DIR ||
+    path.resolve(process.env.HOME, "github_repos/orca-whirlpools-recon/ts-sdk/client/src/generated/instructions")),
+});
 
 // Programs this transaction actually CALLS (top-level + CPI), derived from instructions
 // rather than accountKeys: accountKeys includes fee payer and accounts, and for v0

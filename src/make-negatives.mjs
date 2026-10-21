@@ -60,6 +60,21 @@ function relabelInstruction(src, index, newLabel) {
   return src.slice(0, start) + mutated + src.slice(end);
 }
 
+/** Replace the label immediately above a given `[p][s]: {` entry in INNER_BYTES. */
+function relabelInner(src, parentIx, innerIx, newLabel) {
+  const start = src.indexOf("export const INNER_BYTES = {");
+  if (start < 0) throw new Error("INNER_BYTES block not found");
+  const end = src.indexOf("} as const;", start);
+  const block = src.slice(start, end);
+  const re = new RegExp(
+    `(\\/\\*\\*\\s*)([^*]+?)(\\s*\\*\\/\\s*\\n\\s*\\[${parentIx}\\]\\[${innerIx}\\]:\\s*\\{)`,
+  );
+  if (!re.test(block)) throw new Error(`no label found above inner [${parentIx}][${innerIx}]`);
+  const mutated = block.replace(re, `$1${newLabel}$3`);
+  if (mutated === block) throw new Error(`relabel of inner [${parentIx}][${innerIx}] changed nothing`);
+  return src.slice(0, start) + mutated + src.slice(end);
+}
+
 const specs = [
   {
     from: "remix-6754RLWd.ts",
@@ -132,6 +147,24 @@ const specs = [
       const last = block.lastIndexOf("\n  ");
       return s.slice(0, start) + block.slice(0, last + 1) + s.slice(end);
     },
+  },
+  {
+    from: "remix-multi-4HZWSH28.ts",
+    to: "idl-name-swap2.ts",
+    why: "dflow `swap2` relabelled `swap` — bytes untouched, only the label false",
+    // Byte identity cannot see this: both names belong to the same program and no payload
+    // changed. Before dispatch.mjs was shared, the verifier passed it — the count of named
+    // instructions was unconditional for multi-program recipes.
+    mutate: (s) => relabelInstruction(s, 2, "swap on DF1o…7QBH"),
+  },
+  {
+    from: "remix-multi-4HZWSH28.ts",
+    to: "idl-name-cpi.ts",
+    why: "one CPI relabelled `transferChecked` — its bytes are an ordinary `transfer`",
+    // The inner entry carries no message-level evidence of its own; only the shared resolver
+    // asked to re-name these bytes catches it. Exactly one of the two identical `transfer`
+    // labels is mutated so the failure count stays attributable to the single edit.
+    mutate: (s) => relabelInner(s, 2, 1, "transferChecked on Toke…Q5DA"),
   },
 ];
 

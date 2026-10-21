@@ -1,6 +1,21 @@
-# Transaction Remix — prototype
+# Transaction Remix
 
 One public transaction signature in, one editable, verifiable recipe out.
+
+**Status:** early, run from source. No npm package, no dependencies — a recipe is a plain
+TypeScript file you can read, edit and re-verify.
+
+## Quick start
+
+Requires **Node.js 24+**. There is nothing to install: every import is a `node:` builtin.
+
+    git clone https://github.com/auroraxo/solana-tx-remix.git
+    cd solana-tx-remix
+    node src/verify-recipe.mjs out/remix-multi-4HZWSH28.ts
+
+The last command re-fetches a real mainnet transaction and fails unless the recipe in
+`out/` reproduces it byte for byte. Set `SOLANA_RPC` to use your own RPC endpoint instead
+of the public `api.mainnet-beta.solana.com`.
 
     node src/remix-from-signature.mjs <signature> [--program <programId>] [--idl <dir>]
     node src/remix-multi.mjs <signature> [--multi-idl <dir>] [--gen-idl <dir>]
@@ -10,9 +25,12 @@ One public transaction signature in, one editable, verifiable recipe out.
 No private key, no wallet, no signing is involved at any point.
 
 `remix-from-signature.mjs` targets one program (Whirlpool) and names its fields from the
-program's generated codecs. `remix-multi.mjs` is the common Solana case — an aggregator
-reaching a swap through several programs — and dispatches each instruction (top-level and
-CPI) against a directory of per-program IDLs instead of assuming one program's tags.
+program's generated codecs. It needs those codecs on disk — they are not shipped here —
+via `--idl <dir>` or `IDL_GEN_DIR`; without them it exits with a message naming the
+variable rather than failing mid-run. `remix-multi.mjs` is the common Solana case — an
+aggregator reaching a swap through several programs — and dispatches each instruction
+(top-level and CPI) against the directory of per-program IDLs **shipped in `idl/multi/`**
+in this repo, so it works on a fresh clone with no extra setup.
 
 ## What the recipe contains
 
@@ -55,28 +73,35 @@ evidence of nothing; the earlier hand-copied set did exactly that (they failed o
 
 | control | mutation | expected failure |
 |---|---|---|
-| `arg-flip` | one instruction byte flipped | byte mismatch |
-| `dropped` | last instruction removed | instruction count |
-| `no-lut` | lookup-table contents stripped | unresolvable account index |
-| `wrong-sig` | recipe re-labelled as another signature | instructions absent on chain |
-| `multi-arg-flip` | same flip on a multi-program recipe | byte mismatch |
-| `inner-flip` | one CPI byte flipped | cpi byte mismatch |
-| `inner-dropped` | one CPI removed | cpi present in chain, missing from recipe |
-| `native-name-swap` | two real native names swapped (bytes untouched) | bytes decode as a different instruction |
-| `native-name-crossprogram` | ComputeBudget label placed on the System instruction | bytes decode as a different instruction |
+| `arg-flip` | one instruction byte flipped | byte mismatch (1) |
+| `dropped` | last instruction removed | instruction count (1) |
+| `no-lut` | lookup-table contents stripped | unresolvable account index (83) |
+| `wrong-sig` | recipe re-labelled as another signature | instructions absent on chain (13) |
+| `multi-arg-flip` | same flip on a multi-program recipe | byte mismatch (1) |
+| `inner-flip` | one CPI byte flipped | cpi byte mismatch (1) |
+| `inner-dropped` | one CPI removed | cpi present in chain, missing from recipe (1) |
+| `native-name-swap` | two real native names swapped (bytes untouched) | bytes decode as a different instruction (2) |
+| `native-name-crossprogram` | ComputeBudget label placed on the System instruction | bytes decode as a different instruction (1) |
+| `idl-name-swap2` | dflow `swap2` relabelled `swap` (bytes untouched) | named instruction has no codec (1) |
+| `idl-name-cpi` | one CPI relabelled `transferChecked` (bytes are `transfer`) | named inner has no codec (1) |
 
-All nine fail. Six fail with exactly one failure, attributable to the mutation alone:
-`arg-flip`, `dropped`, `multi-arg-flip`, `inner-flip`, `inner-dropped`, and
-`native-name-crossprogram`. The other three need their count read carefully:
+All eleven fail. Eight fail with exactly one reported failure, attributable to the
+mutation alone. The other three carry larger counts for specific reasons:
 `native-name-swap` reports 2 — the swap wrong-labels both instructions it touches, which
 is one declared mutation with two affected rows; `no-lut` reports 83 unresolved indexes
 (every index past the static keys, once the table contents are gone); `wrong-sig` reports
 13 (instruction count plus one mismatch per instruction, against a transaction with a
-different shape). The three recipes in `out/` pass.
+different shape). The three recipes in `out/remix-multi-*` pass; the fourth
+(`out/remix-6754RLWd.ts`, single-program Whirlpool) passes once the Whirlpool codec
+directory is supplied via `--idl` or `IDL_GEN_DIR`.
 
-The two `native-name-*` controls exist because byte identity cannot see a wrong name: in
+The `native-name-*` controls exist because byte identity cannot see a wrong name: in
 both, every byte matches the chain, and only the label is false. Until native decoding was
-added to the verifier, each passed.
+added to the verifier, each passed. The `idl-name-*` controls are the same defect shape
+one level up — relabel a multi-program instruction as another of the same program's
+instructions, or relabel a CPI's name: bytes are intact, only the label is false. Until
+`dispatch.mjs` was shared between emitter and verifier (so the verifier re-resolves the
+label through the same IDL tables), each passed.
 
 ## Known limits (measured, not guessed)
 

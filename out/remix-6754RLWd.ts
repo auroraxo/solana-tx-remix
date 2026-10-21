@@ -205,13 +205,13 @@ export const LOOKUP_TABLE_ADDRESSES = [
 export const ADDRESS_SPACE_SIZE = 23;
 
 export const INSTRUCTION_BYTES = {
-  /** (unknown) */
+  /** SetComputeUnitLimit */
   0: {
     program: "ComputeBudget111111111111111111111111111111",
     accounts: [],
     data: "AoAaBgA=",
   },
-  /** (unknown) */
+  /** SetComputeUnitPrice */
   1: {
     program: "ComputeBudget111111111111111111111111111111",
     accounts: [],
@@ -259,7 +259,7 @@ export const INSTRUCTION_BYTES = {
     accounts: [12, 18, 19, 16, 0, 9, 20, 17, 22, 8, 10, 15, 14, 4, 4],
     data: "hR1Z30XusArpkNzEuAcAAAAAAAAAAAAAphj9GwAAAAAAAAAAAAAAAAA=",
   },
-  /** (unknown) */
+  /** Transfer */
   9: {
     program: "11111111111111111111111111111111",
     accounts: [0, 3],
