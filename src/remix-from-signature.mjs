@@ -20,7 +20,7 @@ import {
   rpc,
 } from "./remix.mjs";
 import { decodeArgs, schemaForInstruction } from "./args.mjs";
-import { decodeNative } from "./native.mjs";
+import { buildMultiResolver, defaultMultiIdlDir } from "./dispatch.mjs";
 
 const args = process.argv.slice(2);
 const signature = args.find((a) => !a.startsWith("--"));
@@ -64,12 +64,28 @@ const programName = programId === WHIRLPOOL_PROGRAM ? "whirlpool" : programId.sl
 // Without this the fee-budget and account-funding instructions came out as "(unknown)"
 // while the Whirlpool ones resolved — a transaction whose own accounting instructions are
 // unlabelled reads as "nothing else to name", when in fact the names were simply not
-// being looked up. buildRecipe's idlMap fallback still handles the Anchor target, so
-// passing nameFor here only adds the native scheme.
+// being looked up.
+//
+// Naming has to cover every program the transaction calls, not only the target. This
+// emitter used to pass `decodeNative` — ComputeBudget and System only — so every SPL
+// Token CPI came out as "(unknown)" while the same bytes in a multi-program recipe
+// resolved to `transfer`/`transferChecked`: all 14 inner instructions of the shipped
+// Whirlpool example were unlabelled for that reason alone. A recipe that names the outer
+// instruction while its CPIs read "(unknown)" states half the transaction.
+//
+// buildMultiResolver is the same table remix-multi.mjs writes labels from, so the two
+// entry points cannot disagree: per-program tag widths (Token-2022 `initializeAccount`
+// tag=0x01 vs Aquifer `swap` tag=0x01), the native fallback, and the generated Anchor
+// modules for the target program all resolve through one definition. buildRecipe's
+// idlMap fallback still handles the Anchor target directly.
+const nameFor = buildMultiResolver({
+  multiIdlDir: defaultMultiIdlDir(),
+  genIdlDir: idlDir,
+});
 const recipe = await buildRecipe(tx, idlMap, {
   programId,
   programName,
-  nameFor: decodeNative,
+  nameFor,
 });
 const roundTrip = verifyRoundTrip(recipe, tx);
 

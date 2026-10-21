@@ -51,7 +51,7 @@ const isMultiProgram = /export const MULTI_PROGRAM = true;/.test(src);
  * the label now come from dispatch.mjs, so emitter and verifier cannot disagree about what a
  * name means.
  */
-const multiNameFor = isMultiProgram ? buildMultiResolver() : null;
+const multiNameFor = buildMultiResolver();
 let multiProgramCount = 0;
 if (isMultiProgram) {
   if (!multiIdlDirPresent()) {
@@ -371,7 +371,12 @@ console.log(`decoded     : ${decodedCount}/${fromRecipe.length} with generated I
       // proves the name. An inner instruction carries no other evidence — it is not in the
       // message — so a mislabelled CPI is invisible unless the same dispatch table is asked
       // to name it again here.
-      if (isMultiProgram && match.name) {
+      //
+      // Not gated on `isMultiProgram`: the single-program emitter names its CPIs too now.
+      // They used to be written as `(unknown)`, which skipped this branch and left every
+      // Token CPI unverified by name — the emitter's resolver covered only ComputeBudget
+      // and System, so a wrong SPL label would have had nothing to catch it.
+      if (match.name) {
         const hit = multiNameFor(match.program, match.data);
         if (!hit || hit.name !== match.name) {
           failures.push(

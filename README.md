@@ -84,8 +84,9 @@ evidence of nothing; the earlier hand-copied set did exactly that (they failed o
 | `native-name-crossprogram` | ComputeBudget label placed on the System instruction | bytes decode as a different instruction (1) |
 | `idl-name-swap2` | dflow `swap2` relabelled `swap` (bytes untouched) | named instruction has no codec (1) |
 | `idl-name-cpi` | one CPI relabelled `transferChecked` (bytes are `transfer`) | named inner has no codec (1) |
+| `single-cpi-name` | same relabel on a **single-program** recipe, where CPIs were unlabelled | bytes resolve to `transferChecked`, recipe claims `transfer` (1) |
 
-All eleven fail. Eight fail with exactly one reported failure, attributable to the
+All twelve fail. Nine fail with exactly one reported failure, attributable to the
 mutation alone. The other three carry larger counts for specific reasons:
 `native-name-swap` reports 2 — the swap wrong-labels both instructions it touches, which
 is one declared mutation with two affected rows; `no-lut` reports 84 (83 unresolved
@@ -95,7 +96,12 @@ count, one mismatch per instruction against a transaction with a different shape
 the declared address space). The last two rows of that count only became reachable
 after the early-exit fix described above: criteria 6 and 7 used to be skipped whenever a
 top-level check had already failed, so a control whose mutation is in the LUT or a CPI
-reported nothing about it. Three of the four recipes in `out/` pass on a fresh clone;
+reported nothing about it. The `single-cpi-name` control exists for the same reason one
+level over: as long as the single-program emitter wrote every CPI as `(unknown)`, a false
+CPI label on that recipe was untestable — the verifier's label branch was gated on
+`isMultiProgram`, so it skipped the entry point entirely. Checked against the released
+code, the old verifier **passes** this control and the current one fails it with exactly
+one attributable failure. Three of the four recipes in `out/` pass on a fresh clone;
 the fourth
 (`out/remix-6754RLWd.ts`, single-program Whirlpool) passes once the Whirlpool codec
 directory is supplied via `--idl` or `IDL_GEN_DIR`.
@@ -108,6 +114,33 @@ instructions, or relabel a CPI's name: bytes are intact, only the label is false
 `dispatch.mjs` was shared between emitter and verifier (so the verifier re-resolves the
 label through the same IDL tables), each passed.
 
+## How this compares to `@solana/transaction-introspection@8.5.0`
+
+Measured on the same signature (`6754RLWd…YT6`, v0, 10 outer + 14 inner instructions),
+not guessed. The fetch/decode layer is commodity and this tool should not pretend
+otherwise; the table says where the boundary actually is.
+
+| | `transaction-introspection@8.5.0` + kit clients | this repository |
+|---|---|---|
+| program / bytes / account lists agree | 24/24, 24/24, 24/24 | 24/24, 24/24, 24/24 |
+| wire bytes re-encodable | yes — recomposes the 793-byte RPC transaction exactly | n/a (it verifies, it does not rebuild) |
+| resolved accounts incl. lookup tables | yes | yes |
+| instructions named, kit clients only | 17/24 — all 7 Whirlpool instructions stay **unnamed**, because `@solana-program/whirlpool` does not exist on npm | 24/24, zero dependencies |
+| instructions named, Orca's own client added | 24/24 (needs `@orca-so/whirlpools-client`) | 24/24 |
+| editable artifact | no — returns an in-memory object | yes — a plain TypeScript file |
+| acceptance check + negative controls | no | 7 checks, 12 generated controls |
+
+So: adopt the commodity layer for what it does (decoding, wire round-trip, native and SPL
+naming where a kit client exists), and keep the rest. Naming the **target** program is the
+line — Whirlpool has no auto-generated kit client, and a hand-maintained third-party
+client is a dependency the Quick-Start deliberately does not have. This repository names
+all 24 instructions of its flagship example from shipped IDL tables with no `npm install`.
+
+The same 24/24 byte agreement is also cross-validation: two implementations that never
+share a line of code produce identical instruction bytes, account lists and loaded
+addresses for this transaction. If either side is wrong, one of them is wrong in the
+other's presence.
+
 ## Known limits (measured, not guessed)
 
 - Instruction names and argument layouts come from a supplied IDL directory, plus a pinned
@@ -117,6 +150,11 @@ label through the same IDL tables), each passed.
   `SetComputeUnitLimit`, `SetComputeUnitPrice`, `RequestHeapFrame`, System `Transfer`) and
   all 5 CPI. The one unnamed instruction is Titan (`T1TANpTe…`), an aggregator with no
   published IDL — deliberately left as `(unknown)` rather than guessed from byte position.
+  The single-program path names 10 of 10 top-level and 14 of 14 CPI on `6754RLWd…` — it
+  used to name 10 of 24, leaving every Token CPI `(unknown)`, because it resolved names
+  through `decodeNative` alone (ComputeBudget and System) instead of the dispatch table
+  the multi-program emitter writes from. Both entry points now resolve through
+  `dispatch.mjs`, so a label means the same thing in either.
 - Native programs do not share a selector width: ComputeBudget writes a one-byte
   discriminator (`data[0]`), System uses a four-byte u32 LE bincode tag. Reading either
   with the other's width fails silently — it never errors, it just names nothing. The two

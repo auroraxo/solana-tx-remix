@@ -166,6 +166,18 @@ const specs = [
     // labels is mutated so the failure count stays attributable to the single edit.
     mutate: (s) => relabelInner(s, 2, 1, "transferChecked on Toke…Q5DA"),
   },
+  {
+    from: "remix-6754RLWd.ts",
+    to: "single-cpi-name.ts",
+    why: "one CPI of a single-program recipe relabelled `transfer` — bytes are `transferChecked`",
+    // Same defect shape as idl-name-cpi, one entry point over. The single-program emitter
+    // wrote every CPI as `(unknown)` until it was pointed at the same dispatch table the
+    // multi emitter uses, and while they were `(unknown)` no relabelled CPI existed to
+    // test: the verifier's `isMultiProgram && match.name` guard skipped the branch
+    // entirely, so a false SPL label on this recipe would have had nothing to catch it.
+    // Once the emitter names them, this control proves the check runs here too.
+    mutate: (s) => relabelInner(s, 2, 0, "transfer on Toke…Q5DA"),
+  },
 ];
 
 for (const spec of specs) {
