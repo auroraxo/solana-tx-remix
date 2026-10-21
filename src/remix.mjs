@@ -266,14 +266,32 @@ export async function buildRecipe(tx, idlMap, { programId, programName, resolveL
    * Token and BGL-style programs (Aquifer, SolFi) use a 1-byte tag followed directly by
    * args. A wrong tag length reads arg bytes as discriminator — decodes nothing and never
    * errors — so the resolver returns the tag length alongside the name.
+   *
+   * `idlMap` is a flat discriminator -> name table keyed on the FIRST 8 BYTES ONLY, with no
+   * program attached, so it cannot answer "which instruction is this" — only "do these 8
+   * bytes look like something in the table". Consulting it for a program it does not describe
+   * manufactures labels: the Whirlpool-generated `swap` discriminator is
+   * f8c69e91e17587c8, and a Jupiter swap CPI on cpamdpZCGKUy…1sGG that carries those bytes
+   * was written into the recipe as `SWAP`. It is not a Whirlpool instruction, and the
+   * program's own IDL is nowhere in the tree to confirm it — the shared resolver in
+   * dispatch.mjs returns null for exactly these bytes, which is why verification failed a
+   * recipe that its own emitter had just produced, twice, on a real v1 transaction.
+   *
+   * Gated on the target program, which is the only program this table was loaded for. Every
+   * other program goes through nameFor (shipped IDLs + native fallback) or stays `(unknown)`,
+   * and `(unknown)` is honest: it is a state the verifier explicitly distinguishes from a
+   * wrong name.
    */
   const resolveName = (program, data) => {
     if (nameFor) {
       const hit = nameFor(program, data);
       if (hit) return hit;
     }
-    const known = idlMap?.get(data.subarray(0, 8).toString("hex"));
-    return known ? { ...known, tagLen: 8 } : null;
+    if (program === programId) {
+      const known = idlMap?.get(data.subarray(0, 8).toString("hex"));
+      if (known) return { ...known, tagLen: 8 };
+    }
+    return null;
   };
 
   const instructions = msg.instructions.map((ix, index) => {

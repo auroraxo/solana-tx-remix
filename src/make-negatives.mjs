@@ -248,6 +248,40 @@ const specs = [
         'export const RECIPE_VERSION = "legacy";',
       ),
   },
+  {
+    from: "remix-2Apc8uSC.ts",
+    to: "v1-as-legacy.ts",
+    why: "real SIMD-0385 v1 transaction re-labelled `legacy` — bytes identical, wire format claim false",
+    // The v1 half of the same defect, and the one that carried ~37% of mainnet. The
+    // classifier keyed on `msg.version === 0`, a field getTransaction omits for every
+    // version, then fell through to `addressTableLookups.length > 0` — which is 0 for a
+    // v1 message, so every v1 transaction was reported `legacy`. Nothing read the claim
+    // back, so nothing noticed: the instructions are byte-identical under either name.
+    //
+    // wrong-version.ts covers the v0-with-empty-lookup-array side; this covers v1, whose
+    // ground truth is the `transactionConfig` key that only a v1 message carries.
+    mutate: (s) =>
+      s.replace(
+        /export const RECIPE_VERSION = "v1";/,
+        'export const RECIPE_VERSION = "legacy";',
+      ),
+  },
+  {
+    from: "remix-2Apc8uSC.ts",
+    to: "idl-name-foreign.ts",
+    why: "a Whirlpool `swap` label stamped on a program no shipped IDL describes",
+    // The mutation the single-program emitter itself produced on this transaction before
+    // the idlMap fallback was gated on the target program: resolveName consulted a flat
+    // discriminator -> name table with no program attached, found Whirlpool's
+    // `swap` (f8c69e91e17587c8) against cpamdpZCGKUy…1sGG, and wrote `SWAP` into a recipe
+    // it then failed to verify — twice, on a real v1 transaction, while acceptance stayed
+    // green because no v1 recipe was in out/ for acceptance to run.
+    //
+    // Stamping it back is what makes the gate falsifiable: if the verifier ever starts
+    // trusting a label it cannot re-derive from the program's own IDL, this control passes
+    // and acceptance goes red.
+    mutate: (s) => relabelInner(s, 4, 3, "SWAP on cpam…1sGG"),
+  },
 ];
 
 for (const spec of specs) {
