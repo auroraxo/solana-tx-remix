@@ -12,33 +12,33 @@
     "report": [
       {
         "index": 0,
-        "discriminator": "02a8f40c00",
-        "discriminatorMatches": true,
-        "argBytes": 0,
-        "argBytesMatch": true,
-        "accountsMatch": true
-      },
-      {
-        "index": 1,
-        "discriminator": "03e94c1c00000000",
-        "discriminatorMatches": true,
-        "argBytes": 1,
-        "argBytesMatch": true,
-        "accountsMatch": true
-      },
-      {
-        "index": 2,
-        "discriminator": "02000000161c0000",
+        "discriminator": "02",
         "discriminatorMatches": true,
         "argBytes": 4,
         "argBytesMatch": true,
         "accountsMatch": true
       },
       {
-        "index": 3,
-        "discriminator": "0100000400",
+        "index": 1,
+        "discriminator": "03",
         "discriminatorMatches": true,
-        "argBytes": 0,
+        "argBytes": 8,
+        "argBytesMatch": true,
+        "accountsMatch": true
+      },
+      {
+        "index": 2,
+        "discriminator": "02000000",
+        "discriminatorMatches": true,
+        "argBytes": 8,
+        "argBytesMatch": true,
+        "accountsMatch": true
+      },
+      {
+        "index": 3,
+        "discriminator": "01",
+        "discriminatorMatches": true,
+        "argBytes": 4,
         "argBytesMatch": true,
         "accountsMatch": true
       },
@@ -76,9 +76,9 @@
     {
       "index": 0,
       "isTarget": false,
-      "name": null,
-      "discriminator": "02a8f40c00",
-      "argBytes": 0,
+      "name": "SetComputeUnitLimit",
+      "discriminator": "02",
+      "argBytes": 4,
       "accounts": 0,
       "accountsResolved": [],
       "unresolvedAccounts": [],
@@ -87,9 +87,9 @@
     {
       "index": 1,
       "isTarget": false,
-      "name": null,
-      "discriminator": "03e94c1c00000000",
-      "argBytes": 1,
+      "name": "SetComputeUnitPrice",
+      "discriminator": "03",
+      "argBytes": 8,
       "accounts": 0,
       "accountsResolved": [],
       "unresolvedAccounts": [],
@@ -98,9 +98,9 @@
     {
       "index": 2,
       "isTarget": false,
-      "name": null,
-      "discriminator": "02000000161c0000",
-      "argBytes": 4,
+      "name": "Transfer",
+      "discriminator": "02000000",
+      "argBytes": 8,
       "accounts": 2,
       "accountsResolved": [
         "3AkpFinNiqAUNzgp6UkxWBsrj3UR1ZTxgwem4hesoZUF",
@@ -112,9 +112,9 @@
     {
       "index": 3,
       "isTarget": false,
-      "name": null,
-      "discriminator": "0100000400",
-      "argBytes": 0,
+      "name": "RequestHeapFrame",
+      "discriminator": "01",
+      "argBytes": 4,
       "accounts": 0,
       "accountsResolved": [],
       "unresolvedAccounts": [],

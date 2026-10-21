@@ -48,6 +48,18 @@ function dropLastInstruction(src) {
   return src.slice(0, start) + trimmed + src.slice(end);
 }
 
+/** Replace the label immediately above a given `  <n>: {` entry in INSTRUCTION_BYTES. */
+function relabelInstruction(src, index, newLabel) {
+  const start = src.indexOf("export const INSTRUCTION_BYTES = {");
+  const end = src.indexOf("} as const;", start);
+  const block = src.slice(start, end);
+  const re = new RegExp(`(\\/\\*\\*\\s*)([^*]+?)(\\s*\\*\\/\\s*\\n\\s*${index}:\\s*\\{)`);
+  if (!re.test(block)) throw new Error(`no label found above instruction ${index}`);
+  const mutated = block.replace(re, `$1${newLabel}$3`);
+  if (mutated === block) throw new Error(`relabel of instruction ${index} changed nothing`);
+  return src.slice(0, start) + mutated + src.slice(end);
+}
+
 const specs = [
   {
     from: "remix-6754RLWd.ts",
@@ -92,6 +104,22 @@ const specs = [
     to: "inner-flip.ts",
     why: "one CPI byte flipped — exercises the inner-instruction check specifically",
     mutate: (s) => flipLastByte(s, firstDataIn(s, "INNER_BYTES")),
+  },
+  {
+    from: "remix-multi-3yB9Q1pq.ts",
+    to: "native-name-swap.ts",
+    why: "two real native names swapped — bytes correct, label wrong",
+    // Byte-identity alone cannot see this: both labels belong to the right program and
+    // the payload is untouched. Only a decode-and-re-encode of the native bytes catches it.
+    mutate: (s) => relabelInstruction(relabelInstruction(s, 0, "SetComputeUnitPrice"), 1, "SetComputeUnitLimit"),
+  },
+  {
+    from: "remix-multi-3yB9Q1pq.ts",
+    to: "native-name-crossprogram.ts",
+    why: "ComputeBudget label placed on the System instruction",
+    // The name is a real ComputeBudget instruction, so a name-only validity check passes;
+    // the program's own scheme is what makes it wrong.
+    mutate: (s) => relabelInstruction(s, 2, "RequestHeapFrame"),
   },
   {
     from: "remix-6754RLWd.ts",

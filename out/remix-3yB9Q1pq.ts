@@ -71,25 +71,25 @@ export const LOOKUP_TABLE_ADDRESSES = [
 export const ADDRESS_SPACE_SIZE = 36;
 
 export const INSTRUCTION_BYTES = {
-  /** (unknown) */
+  /** SetComputeUnitLimit */
   0: {
     program: "ComputeBudget111111111111111111111111111111",
     accounts: [],
     data: "Aqj0DAA=",
   },
-  /** (unknown) */
+  /** SetComputeUnitPrice */
   1: {
     program: "ComputeBudget111111111111111111111111111111",
     accounts: [],
     data: "A+lMHAAAAAAA",
   },
-  /** (unknown) */
+  /** Transfer */
   2: {
     program: "11111111111111111111111111111111",
     accounts: [0, 1],
     data: "AgAAABYcAAAAAAAA",
   },
-  /** (unknown) */
+  /** RequestHeapFrame */
   3: {
     program: "ComputeBudget111111111111111111111111111111",
     accounts: [],

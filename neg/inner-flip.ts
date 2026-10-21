@@ -19,6 +19,10 @@
 
 // ------------------------------------------------------ editable parameters
 
+/** ix 0: SetComputeUnitLimit on Comp…1111 (tagLen=1) — 0 accounts */
+/** ix 1: SetComputeUnitPrice on Comp…1111 (tagLen=1) — 0 accounts */
+/** ix 2: Transfer on 1111…1111 (tagLen=4) — 2 accounts */
+/** ix 3: RequestHeapFrame on Comp…1111 (tagLen=1) — 0 accounts */
 
 // ---------------------------------------------------------------- transaction
 
@@ -74,25 +78,25 @@ export const LOOKUP_TABLE_ADDRESSES = [
 export const ADDRESS_SPACE_SIZE = 36;
 
 export const INSTRUCTION_BYTES = {
-  /** (unknown) on Comp…1111 */
+  /** SetComputeUnitLimit on Comp…1111 */
   0: {
     program: "ComputeBudget111111111111111111111111111111",
     accounts: [],
     data: "Aqj0DAA=",
   },
-  /** (unknown) on Comp…1111 */
+  /** SetComputeUnitPrice on Comp…1111 */
   1: {
     program: "ComputeBudget111111111111111111111111111111",
     accounts: [],
     data: "A+lMHAAAAAAA",
   },
-  /** (unknown) on 1111…1111 */
+  /** Transfer on 1111…1111 */
   2: {
     program: "11111111111111111111111111111111",
     accounts: [0, 1],
     data: "AgAAABYcAAAAAAAA",
   },
-  /** (unknown) on Comp…1111 */
+  /** RequestHeapFrame on Comp…1111 */
   3: {
     program: "ComputeBudget111111111111111111111111111111",
     accounts: [],

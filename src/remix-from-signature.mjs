@@ -20,6 +20,7 @@ import {
   rpc,
 } from "./remix.mjs";
 import { decodeArgs, schemaForInstruction } from "./args.mjs";
+import { decodeNative } from "./native.mjs";
 
 const args = process.argv.slice(2);
 const signature = args.find((a) => !a.startsWith("--"));
@@ -45,7 +46,17 @@ if (idlMap.size === 0) throw new Error(`no instruction discriminators found in $
 
 const programId = flag("--program", WHIRLPOOL_PROGRAM);
 const programName = programId === WHIRLPOOL_PROGRAM ? "whirlpool" : programId.slice(0, 8);
-const recipe = await buildRecipe(tx, idlMap, { programId, programName });
+// Native programs (ComputeBudget, System) are named too, not just the target program.
+// Without this the fee-budget and account-funding instructions came out as "(unknown)"
+// while the Whirlpool ones resolved — a transaction whose own accounting instructions are
+// unlabelled reads as "nothing else to name", when in fact the names were simply not
+// being looked up. buildRecipe's idlMap fallback still handles the Anchor target, so
+// passing nameFor here only adds the native scheme.
+const recipe = await buildRecipe(tx, idlMap, {
+  programId,
+  programName,
+  nameFor: decodeNative,
+});
 const roundTrip = verifyRoundTrip(recipe, tx);
 
 // Fetch one piece of real on-chain state so the recipe can describe what the pool is,

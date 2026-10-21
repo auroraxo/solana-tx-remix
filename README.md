@@ -62,21 +62,36 @@ evidence of nothing; the earlier hand-copied set did exactly that (they failed o
 | `multi-arg-flip` | same flip on a multi-program recipe | byte mismatch |
 | `inner-flip` | one CPI byte flipped | cpi byte mismatch |
 | `inner-dropped` | one CPI removed | cpi present in chain, missing from recipe |
+| `native-name-swap` | two real native names swapped (bytes untouched) | bytes decode as a different instruction |
+| `native-name-crossprogram` | ComputeBudget label placed on the System instruction | bytes decode as a different instruction |
 
-All seven fail. Five fail with exactly one failure, attributable to the mutation alone:
-`arg-flip`, `dropped`, `multi-arg-flip`, `inner-flip`, `inner-dropped`. Two cascade from a
-single mutation and say so: `no-lut` reports 83 unresolved indexes (every index past the
-static keys, once the table contents are gone) and `wrong-sig` reports 13 (instruction count
-plus one mismatch per instruction, against a transaction with a different shape). The three
-recipes in `out/` pass.
+All nine fail. Six fail with exactly one failure, attributable to the mutation alone:
+`arg-flip`, `dropped`, `multi-arg-flip`, `inner-flip`, `inner-dropped`, and
+`native-name-crossprogram`. The other three need their count read carefully:
+`native-name-swap` reports 2 — the swap wrong-labels both instructions it touches, which
+is one declared mutation with two affected rows; `no-lut` reports 83 unresolved indexes
+(every index past the static keys, once the table contents are gone); `wrong-sig` reports
+13 (instruction count plus one mismatch per instruction, against a transaction with a
+different shape). The three recipes in `out/` pass.
+
+The two `native-name-*` controls exist because byte identity cannot see a wrong name: in
+both, every byte matches the chain, and only the label is false. Until native decoding was
+added to the verifier, each passed.
 
 ## Known limits (measured, not guessed)
 
-- Instruction names and argument layouts come from a supplied IDL directory. Without the
-  right IDL, bytes still round-trip but names stay `null` — the tool reports `0/N decoded`
-  rather than inventing labels. On `3yB9Q1pq…` the multi-program path names 5 of 10
-  (5 CPI: SPL Token transfers, Aquifer `swap`); the 5 top-level instructions belong to
-  programs with no IDL in the directory and stay unnamed.
+- Instruction names and argument layouts come from a supplied IDL directory, plus a pinned
+  table for the native Solana programs (`src/native.mjs`). Without a source, bytes still
+  round-trip but names stay `null` — the tool reports `0/N decoded` rather than inventing
+  labels. On `3yB9Q1pq…` the multi-program path names 9 of 10: 4 top-level (ComputeBudget
+  `SetComputeUnitLimit`, `SetComputeUnitPrice`, `RequestHeapFrame`, System `Transfer`) and
+  all 5 CPI. The one unnamed instruction is Titan (`T1TANpTe…`), an aggregator with no
+  published IDL — deliberately left as `(unknown)` rather than guessed from byte position.
+- Native programs do not share a selector width: ComputeBudget writes a one-byte
+  discriminator (`data[0]`), System uses a four-byte u32 LE bincode tag. Reading either
+  with the other's width fails silently — it never errors, it just names nothing. The two
+  enums in `src/native.mjs` are pinned to `anza-xyz/solana-sdk@8db406e` and each is
+  corroborated by a second independent source, recorded alongside the pin.
 - Per-program IDLs ship without addresses (`Aquifer`, `Solfi`, SPL Token). Those are bound
   in `PROGRAM_NAME_ALIASES` in `src/idl-bitquery.mjs`, each a verified executable mainnet
   program. Any new address goes through the same check, not a guess — a wrong binding

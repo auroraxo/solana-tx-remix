@@ -17,6 +17,7 @@
 import fs from "node:fs";
 import { b58decode, fetchTransaction, parseInnerBytes, rpc } from "./remix.mjs";
 import { decodeArgs, schemaForInstruction } from "./args.mjs";
+import { encodeNative, decodeNative, isNativeProgram, isNativeName, nativeProgramLabel } from "./native.mjs";
 
 const recipePath = process.argv[2];
 if (!recipePath) {
@@ -188,6 +189,53 @@ for (const ix of fromRecipe) {
 let decodedCount = 0;
 for (const ix of fromRecipe) {
   if (!ix.name) continue;
+
+  if (isNativeProgram(ix.program)) {
+    // Hoisted out of the multi-program branch: native naming comes from native.mjs in
+    // BOTH entry points, so both need the same guard, and neither has a Codama codec to
+    // fall back on. Gate on the PROGRAM, not the claimed name — gating on
+    // `isNative(program, name)` skipped the check whenever the label named an instruction
+    // from a different program, which is precisely the mislabel this guard exists to catch.
+    const decodedArgs = decodeNative(ix.program, ix.data);
+    if (!decodedArgs) {
+      failures.push(
+        `ix ${ix.index}: claims ${ix.name} on ${ix.program}, but its bytes do not decode as any ${nativeProgramLabel(ix.program)} instruction`,
+      );
+      continue;
+    }
+    // Name agreement first: it is the precise failure. Reading `units` from bytes that say
+    // `micro_lamports` would otherwise surface as "could not be re-encoded", which
+    // describes the symptom, not the defect.
+    if (ix.name !== decodedArgs.name) {
+      failures.push(`ix ${ix.index}: bytes decode as ${decodedArgs.name}, recipe claims ${ix.name}`);
+      continue;
+    }
+    const rebuilt = encodeNative(ix.program, decodedArgs.name, decodedArgs.args);
+    if (!rebuilt) {
+      failures.push(`ix ${ix.index}: native name ${decodedArgs.name} could not be re-encoded`);
+      continue;
+    }
+    const original = ix.data.subarray(0, rebuilt.length);
+    if (Buffer.compare(rebuilt, original) !== 0) {
+      failures.push(
+        `ix ${ix.index}: native name ${decodedArgs.name} re-encodes to ${rebuilt.toString("hex")}, bytes are ${original.toString("hex")}`,
+      );
+      continue;
+    }
+    decodedCount++;
+    continue;
+  }
+
+  if (isNativeName(ix.name) && !isNativeProgram(ix.program)) {
+    // A native instruction name on a program that has no such instruction — `Transfer`
+    // on an Anchor aggregator, say. Its bytes belong to that program's own scheme, so the
+    // bytes check below cannot see this; only the label is wrong.
+    failures.push(
+      `ix ${ix.index}: recipe claims native instruction ${ix.name} on ${ix.program}, which does not implement it`,
+    );
+    continue;
+  }
+
   if (isMultiProgram) {
     // Multi recipes name instructions from several programs' IDL JSONs. Expanding args
     // through a single program's codec directory (GEN_DIR = Whirlpool) would decode

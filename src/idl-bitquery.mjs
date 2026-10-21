@@ -19,6 +19,7 @@
  */
 import fs from "node:fs";
 import path from "node:path";
+import { decodeNative } from "./native.mjs";
 
 const ANCHOR_DISC_SIZE = 8;
 
@@ -145,7 +146,14 @@ export function loadProgramDispatch(dir) {
 export function makeNameResolver(byProgram, extraByProgram = new Map()) {
   return function nameFor(program, data) {
     const p = byProgram.get(program) ?? extraByProgram.get(program);
-    if (!p) return null;
+    if (!p) {
+      // Native Solana programs ship no usable discriminants in bitquery's IDL set:
+      // compute-budget declares an empty instruction list, system omits discriminants
+      // entirely. Their selector scheme is fixed per program and lives in native.mjs.
+      // Tried first because a known-width selector beats an absent table — and because
+      // reading either one with the other's width silently decodes nothing.
+      return decodeNative(program, data);
+    }
     if (data.length >= ANCHOR_DISC_SIZE) {
       const hit = p.anchor.get(data.subarray(0, ANCHOR_DISC_SIZE).toString("hex"));
       if (hit) return { ...hit, tagLen: ANCHOR_DISC_SIZE };
@@ -156,6 +164,6 @@ export function makeNameResolver(byProgram, extraByProgram = new Map()) {
         return { ...v, tagLen: v.tagLen ?? tagBuf.length };
       }
     }
-    return null;
+    return decodeNative(program, data) ?? null;
   };
 }
