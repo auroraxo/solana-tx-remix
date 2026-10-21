@@ -24,11 +24,14 @@ import { decodeNative } from "./native.mjs";
 const ANCHOR_DISC_SIZE = 8;
 
 /**
- * bitquery's `spl_token_2022.json` (and its classic-token siblings) ship without an
- * `address` field. The instruction numbering of the original SPL Token instructions is
- * preserved verbatim by Token-2022 (it is a strict superset), so binding that single
- * IDL to both program addresses is accurate for every tag it declares — including
- * transfer=3, transferChecked=12, mintTo=7, burn=8 used in real transactions today.
+ * bitquery's shank-origin IDLs declare the program address in two places, and which one
+ * they use is per file: `spl_token_2022.json` carries Token-2022 under `metadata.address`
+ * but carries the classic SPL Token program nowhere at all. The numbering of the original
+ * SPL Token instructions is preserved verbatim by Token-2022 (it is a strict superset),
+ * so binding that single IDL to both program addresses is accurate for every tag it
+ * declares — including transfer=3, transferChecked=12, mintTo=7, burn=8 used in real
+ * transactions today. This alias supplies the binding `metadata.address` cannot; it is not
+ * a workaround for a key the loader failed to read.
  */
 const PROGRAM_NAME_ALIASES = {
   spl_token_2022: [
@@ -39,13 +42,16 @@ const PROGRAM_NAME_ALIASES = {
     "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
     "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
   ],
-  // bitquery's per-program files for these ship without `address`; the program IDs are
-  // public constants (also listed in solana-foundation/solana-com slot200 and
-  // DefiLlama adapters), verified executable on mainnet at the time of wiring.
+  // These carry the address under `metadata.address`, which `parseIdlJson` reads directly,
+  // so the aliases are redundant as bindings. They stay as a cross-check of identity: a
+  // mismatch between an alias and the file's own declared address would be a misbinding
+  // of a verified executable program, which is the exact failure mode to catch.
   Aquifer: ["AQU1FRd7papthgdrwPTTq5JacJh8YtwEXaBfKU3bTz45"],
   aquifer: ["AQU1FRd7papthgdrwPTTq5JacJh8YtwEXaBfKU3bTz45"],
   Solfi: ["SoLFiHG9TfgtdUXUjWAxi3LtvYuFyDLVhBWxdMZxyCe"],
   solfi: ["SoLFiHG9TfgtdUXUjWAxi3LtvYuFyDLVhBWxdMZxyCe"],
+  BisonFi: ["BiSoNHVpsVZW2F7rx2eQ59yQwKxzU5NvBcmKshCSUypi"],
+  bisonfi: ["BiSoNHVpsVZW2F7rx2eQ59yQwKxzU5NvBcmKshCSUypi"],
 };
 
 /** Parse one bitquery IDL JSON into { addresses, instructions:[{name, scheme, tag, entry}] }. */
@@ -56,7 +62,20 @@ export function parseIdlJson(file) {
 
   const addresses = [];
   if (typeof j.address === "string" && j.address) addresses.push(j.address);
+  // shank-origin IDLs (`metadata.origin: "shank"`) declare the program under
+  // `metadata.address`. Four of the eight IDLs in idl/multi are shank-origin, and reading
+  // only the top-level key bound none of them: `metadata` was already being parsed one line
+  // up to reach `programName`, so the address was in the object and never looked at.
+  //
+  // An unbound program does not fail. It misses the dispatch table, misses the native
+  // fallback, returns null, and the emitters render null as `(unknown)` — a loader that
+  // cannot reach a table it is already carrying reports "nothing to name" instead of
+  // "could not reach the names". The two look identical from outside, which is the whole
+  // failure mode this file exists to avoid.
+  const metaAddress = j.metadata?.address;
+  if (typeof metaAddress === "string" && metaAddress) addresses.push(metaAddress);
   for (const alias of PROGRAM_NAME_ALIASES[programName] ?? []) addresses.push(alias);
+  const deduped = [...new Set(addresses)];
 
   const instructions = [];
   for (const ix of j.instructions ?? []) {
@@ -83,15 +102,27 @@ export function parseIdlJson(file) {
     // No discriminator AND no discriminant: skip — a name guessed from position alone
     // would be a label, not a decode.
   }
-  return { addresses, programName, instructions };
+  return { addresses: deduped, programName, instructions };
+}
+
+/**
+ * What the most recent {@link loadProgramDispatch} could not use. Declared before the
+ * loader so this module never reads a binding it initialized after the function that
+ * writes it.
+ */
+let LAST_LOAD = { dropped: [], files: 0 };
+export function lastLoadReport() {
+  return { ...LAST_LOAD, dropped: [...LAST_LOAD.dropped] };
 }
 
 /**
  * Recursively walk a directory, parse every *.json, and build a per-program dispatch
  * table: address → { anchor: Map<hex8, entry>, tag: Map<hexTag, {entry, tagLen}> }.
  *
- * Programs whose IDL declares no address are silently dropped here; callers that need
- * them must extend PROGRAM_NAME_ALIASES with a verified address.
+ * A file that declares no address at any supported location, or that declares
+ * instructions but no discriminator of any kind, is dropped — and the reason is recorded
+ * in `lastLoadReport().dropped` rather than discarded. Both cases used to be `continue`
+ * with no record, which is how an IDL could sit in the tree and bind nothing.
  */
 export function loadProgramDispatch(dir) {
   const byProgram = new Map();
@@ -117,14 +148,25 @@ export function loadProgramDispatch(dir) {
     return p;
   };
 
+  const dropped = [];
   for (const file of files) {
     let parsed;
     try {
       parsed = parseIdlJson(file);
     } catch (e) {
+      dropped.push(`${path.basename(file)}: ${e.message}`);
       continue;
     }
-    if (parsed.addresses.length === 0) continue;
+    if (parsed.addresses.length === 0) {
+      dropped.push(`${path.basename(file)}: declares no program address`);
+      continue;
+    }
+    if (parsed.instructions.length === 0) {
+      dropped.push(
+        `${path.basename(file)}: binds ${parsed.addresses.length} program(s) but declares no usable discriminator`,
+      );
+      continue;
+    }
     for (const address of parsed.addresses) {
       const p = ensure(address);
       p.sources.add(file);
@@ -134,7 +176,29 @@ export function loadProgramDispatch(dir) {
       }
     }
   }
+  byProgram.dropped = dropped;
+  LAST_LOAD = { dropped, files: files.length };
   return byProgram;
+}
+
+/**
+ * Files in `dir` that parsed but bound nothing.
+ *
+ * This exists because one did. `bisonfi.json` sat in idl/multi declaring three
+ * instructions with explicit discriminants, bound ZERO programs (its address lives under
+ * `metadata.address`, which the loader did not read), and every recipe that touched
+ * BisonFi printed `(unknown)` for it — while `node ci/acceptance.mjs` printed
+ * `ACCEPTANCE PASSED`. Nothing between a shipped IDL and a passing verdict looked at
+ * whether the IDL was reachable at all.
+ *
+ * The failure has no other symptom: an unbound program returns null from the resolver,
+ * null renders as `(unknown)`, and `(unknown)` is a legal label. So the check cannot be
+ * "the recipe named it" — that is exactly what is broken. It has to ask the loader
+ * directly, which is what this does.
+ */
+export function unusableIdlFiles(dir) {
+  loadProgramDispatch(dir);
+  return lastLoadReport().dropped;
 }
 
 /**

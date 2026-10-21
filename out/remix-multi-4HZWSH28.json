@@ -124,10 +124,10 @@
         {
           "program": "BiSoNHVpsVZW2F7rx2eQ59yQwKxzU5NvBcmKshCSUypi",
           "isTarget": false,
-          "name": null,
-          "discriminator": "07c092ed19000000",
-          "tagLen": 8,
-          "argBytes": 11,
+          "name": "swap2",
+          "discriminator": "07",
+          "tagLen": 1,
+          "argBytes": 18,
           "accountCount": 10,
           "accountsResolved": [
             "CYa4bLwboipDtag3dRVowqyD8uXswijKgbUpt65GBmQK",

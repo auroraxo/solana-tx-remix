@@ -192,9 +192,9 @@
         {
           "program": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
           "isTarget": false,
-          "name": null,
-          "discriminator": "03c05c1500000000",
-          "argBytes": 1,
+          "name": "transfer",
+          "discriminator": "03",
+          "argBytes": 8,
           "accountCount": 3,
           "accountsResolved": [
             "92SghfXicHAKSgmVg6VATPoJjzB641S3Z9MfX1u2pw9x",
@@ -206,9 +206,9 @@
         {
           "program": "AQU1FRd7papthgdrwPTTq5JacJh8YtwEXaBfKU3bTz45",
           "isTarget": false,
-          "name": null,
-          "discriminator": "01c05c1500000000",
-          "argBytes": 1,
+          "name": "swap",
+          "discriminator": "01",
+          "argBytes": 8,
           "accountCount": 16,
           "accountsResolved": [
             "Sysvar1nstructions1111111111111111111111111",
@@ -233,9 +233,9 @@
         {
           "program": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
           "isTarget": false,
-          "name": null,
-          "discriminator": "0ce0210b02000000",
-          "argBytes": 2,
+          "name": "transferChecked",
+          "discriminator": "0c",
+          "argBytes": 9,
           "accountCount": 4,
           "accountsResolved": [
             "7ULN1YSsJ3tnC98PVko7qTS5iGzX73QY74vgMeHjwvkW",
@@ -248,9 +248,9 @@
         {
           "program": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
           "isTarget": false,
-          "name": null,
-          "discriminator": "0cc05c1500000000",
-          "argBytes": 2,
+          "name": "transferChecked",
+          "discriminator": "0c",
+          "argBytes": 9,
           "accountCount": 4,
           "accountsResolved": [
             "428MeYEAVcvCy6nhUhhA2kWR2oUpfZTTGnVcro2gqsMF",
@@ -263,9 +263,9 @@
         {
           "program": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
           "isTarget": false,
-          "name": null,
-          "discriminator": "037c140b02000000",
-          "argBytes": 1,
+          "name": "transfer",
+          "discriminator": "03",
+          "argBytes": 8,
           "accountCount": 3,
           "accountsResolved": [
             "3nnVbsCfN1mwUk2XSLCnjzY3bDDTdzpnKjvRmd8nESS2",

@@ -110,31 +110,31 @@ export const INSTRUCTION_BYTES = {
  * Account indexes address the same flat space as INSTRUCTION_BYTES.
  */
 export const INNER_BYTES = {
-  /** (unknown) on Toke…Q5DA */
+  /** transfer on Toke…Q5DA */
   [4][0]: {
     program: "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
     accounts: [2, 9, 0],
     data: "A8BcFQAAAAAA",
   },
-  /** (unknown) on AQU1…Tz45 */
+  /** swap on AQU1…Tz45 */
   [4][1]: {
     program: "AQU1FRd7papthgdrwPTTq5JacJh8YtwEXaBfKU3bTz45",
     accounts: [29, 8, 24, 10, 28, 24, 9, 27, 30, 11, 31, 32, 12, 13, 14, 15],
     data: "AcBcFQAAAAAA",
   },
-  /** (unknown) on Toke…Q5DA */
+  /** transferChecked on Toke…Q5DA */
   [4][2]: {
     program: "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
     accounts: [13, 28, 10, 12],
     data: "DOAhCwIAAAAABg==",
   },
-  /** (unknown) on Toke…Q5DA */
+  /** transferChecked on Toke…Q5DA */
   [4][3]: {
     program: "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
     accounts: [9, 27, 15, 8],
     data: "DMBcFQAAAAAACA==",
   },
-  /** (unknown) on Toke…Q5DA */
+  /** transfer on Toke…Q5DA */
   [4][4]: {
     program: "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
     accounts: [10, 3, 8],

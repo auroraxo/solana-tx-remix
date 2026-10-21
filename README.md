@@ -29,9 +29,14 @@ No private key, no wallet, no signing is involved at any point.
 ## Continuous integration
 
 `node ci/acceptance.mjs` is the whole verdict, and GitHub Actions runs it on every push
-(`.github/workflows/acceptance.yml`). It asserts three things, each of which can fail:
+(`.github/workflows/acceptance.yml`). It asserts four things, each of which can fail:
 
-1. **`neg/` is reproducible from `out/`** — regenerating the controls must change nothing.
+1. **Every shipped IDL in `idl/multi/` binds a program** — the loader reports any file it
+   cannot use, rather than dropping it silently. This is the check that was missing when
+   `bisonfi.json` bound nothing and a recipe that touched BisonFi printed `(unknown)` for
+   it while every other assertion here reported PASS: each of them looks at recipes, and a
+   recipe whose labels are `(unknown)` passes byte-identity by construction.
+2. **`neg/` is reproducible from `out/`** — regenerating the controls must change nothing.
    If it does, a control on disk is a mutation of a recipe that is no longer there: it still
    fails, but it no longer proves what its declaration says it proves.
 2. **Every recipe in `out/` reproduces its transaction** byte for byte against a fresh RPC
@@ -41,6 +46,11 @@ No private key, no wallet, no signing is involved at any point.
    failures become the baseline; a control must exceed it. A control that fails only for
    reasons its source already fails for proves nothing, and an unreachable RPC is reported
    as "no verdict" rather than mistaken for a pass.
+4. **No recipe withholds a name the shipped IDL set has** — checked inside
+   `src/verify-recipe.mjs`, so it applies to `out/` and to `neg/` alike. The 14 controls
+   above include two that exist specifically for it: `idl-name-withheld-top` and
+   `idl-name-withheld-cpi` blank a label the table can fill, which before this rule was
+   indistinguishable from a correct recipe.
 
 The same script runs in CI and by hand, so a green badge and a local run are the same
 claim. The `no control may go unjudged` step fails the build if the control table and the
@@ -177,15 +187,31 @@ other's presence.
   through `decodeNative` alone (ComputeBudget and System) instead of the dispatch table
   the multi-program emitter writes from. Both entry points now resolve through
   `dispatch.mjs`, so a label means the same thing in either.
+- An `(unknown)` label used to be unverifiable by construction: every name check was
+  reached through `if (name)`, so withholding a name skipped all of them, and byte-identity
+  does not care. `out/remix-3yB9Q1pq.ts` shipped five CPIs in exactly that state — nameable
+  from the shipped tables, never regenerated after the emitter was fixed — and acceptance
+  passed. The verifier now fails when the shipped IDL set can name bytes the recipe
+  withheld, at top level and for CPI alike; `neg/idl-name-withheld-*.ts` are the two
+  controls that prove the check exists. A null resolver result stays unflagged, because
+  "no IDL covers this program" is a real state (Titan, and the one DFlow instruction its
+  17-entry table does not declare) and must not be reported as a defect.
 - Native programs do not share a selector width: ComputeBudget writes a one-byte
   discriminator (`data[0]`), System uses a four-byte u32 LE bincode tag. Reading either
   with the other's width fails silently — it never errors, it just names nothing. The two
   enums in `src/native.mjs` are pinned to `anza-xyz/solana-sdk@8db406e` and each is
   corroborated by a second independent source, recorded alongside the pin.
-- Per-program IDLs ship without addresses (`Aquifer`, `Solfi`, SPL Token). Those are bound
-  in `PROGRAM_NAME_ALIASES` in `src/idl-bitquery.mjs`, each a verified executable mainnet
-  program. Any new address goes through the same check, not a guess — a wrong binding
-  mislabels bytes silently, which is the failure mode the tool exists to catch elsewhere.
+- Per-program IDLs declare their program address in different places: the shank-origin
+  ones (`aquifer`, `bisonfi`, `solfi`, `spl_token_2022`) put it in `metadata.address`, the
+  rest at the top level. `parseIdlJson` reads both. It did not until 21.10, and
+  `bisonfi.json` was the cost: it declared three instructions with explicit discriminants,
+  bound zero programs, and every BisonFi instruction in `out/` rendered `(unknown)` while
+  `node ci/acceptance.mjs` printed PASS — no check asked whether a shipped IDL was
+  reachable. `PROGRAM_NAME_ALIASES` then supplies the addresses no file carries (classic
+  SPL Token, which Token-2022's `metadata.address` cannot name), each a verified executable
+  mainnet program; a wrong binding mislabels bytes silently, which is the failure mode the
+  tool exists to catch elsewhere. Reachability is now asserted: step 1 of acceptance fails
+  on any shipped IDL that binds nothing.
 - Account roles come from the IDL's account order. Where an IDL's order differs from the
   program's real one, labels are wrong even though the bytes are right.
 - `remainingAccountsInfo` is reported as raw base64 rather than decoded.

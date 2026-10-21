@@ -159,6 +159,32 @@ const unresolved = fromRecipe.flatMap((ix) =>
 );
 failures.push(...unresolved);
 
+// 0b. Labelled (unknown) where the shipped IDL set knows better.
+//
+// Every check below starts from `if (!ix.name) continue;`, so an `(unknown)` label asks the
+// verifier nothing and cannot be wrong. That is correct for a program with no IDL we hold,
+// and it is a hole for one whose IDL sits in the tree: out/remix-3yB9Q1pq.ts shipped six
+// `(unknown)` labels (four SPL Token CPIs, one Aquifer CPI, one aggregator) while idl/multi
+// bound the programs those CPIs belong to, and `node ci/acceptance.mjs` printed
+// ACCEPTANCE PASSED for the stale tree just as it did for the broken loader.
+//
+// Emitter and verifier build the same resolver (dispatch.mjs), so "resolver can name these
+// bytes and the recipe did not" is not a content disagreement — it is a stale artifact,
+// which is what happens when an emitter fix lands and the recipe it writes is not
+// regenerated. Byte-identity cannot see it: the bytes never changed.
+//
+// A null resolver result stays skipped here, unlike the checks below it: null means "no IDL
+// covers this program", which is a real state and must not be reported as a defect.
+for (const ix of fromRecipe) {
+  if (ix.name) continue;
+  const hit = multiNameFor(ix.program, ix.data);
+  if (hit) {
+    failures.push(
+      `ix ${ix.index}: labelled (unknown) on ${ix.program}, but the shipped IDL set resolves these bytes to ${hit.name}`,
+    );
+  }
+}
+
 // Address range sanity: every index must fit the flat address space we resolved.
 const sizeMatch = src.match(/ADDRESS_SPACE_SIZE = (\d+)/);
 const addressSpaceSize = sizeMatch ? Number(sizeMatch[1]) : null;
@@ -381,6 +407,21 @@ console.log(`decoded     : ${decodedCount}/${fromRecipe.length} with generated I
         if (!hit || hit.name !== match.name) {
           failures.push(
             `cpi (parent ix ${group.index}, slot ${i}): bytes resolve to ${hit ? hit.name : "(no known instruction)"}, recipe claims ${match.name}`,
+          );
+          cpiFailures++;
+        }
+      } else {
+        // The other half of the label check. `if (match.name)` above skips every
+        // `(unknown)` CPI, and before 6e17cba every CPI the single-program emitter wrote
+        // was `(unknown)` — so the branch that proves a label was unreachable for exactly
+        // the labels most likely to be wrong. Four Token CPIs of out/remix-3yB9Q1pq.ts sat
+        // in that state, nameable from the shipped idl/multi table and never asked.
+        // Same rule as 0b at top level: a null result means no IDL covers the program and
+        // is left alone; a hit means the recipe withheld a name it had.
+        const hit = multiNameFor(match.program, match.data);
+        if (hit) {
+          failures.push(
+            `cpi (parent ix ${group.index}, slot ${i}): labelled (unknown) on ${match.program}, but the shipped IDL set resolves these bytes to ${hit.name}`,
           );
           cpiFailures++;
         }

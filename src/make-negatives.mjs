@@ -60,6 +60,33 @@ function relabelInstruction(src, index, newLabel) {
   return src.slice(0, start) + mutated + src.slice(end);
 }
 
+/** Blank a label to `(unknown)` — the state every label check below skips. */
+function unlabelInstruction(src, index) {
+  const start = src.indexOf("export const INSTRUCTION_BYTES = {");
+  const end = src.indexOf("} as const;", start);
+  const block = src.slice(start, end);
+  const re = new RegExp(`(\\/\\*\\*\\s*)([^*]+?)(\\s*\\*\\/\\s*\\n\\s*${index}:\\s*\\{)`);
+  if (!re.test(block)) throw new Error(`no label found above instruction ${index}`);
+  const mutated = block.replace(re, `$1(unknown)$3`);
+  if (mutated === block) throw new Error(`unlabel of instruction ${index} changed nothing`);
+  return src.slice(0, start) + mutated + src.slice(end);
+}
+
+/** Blank a CPI label to `(unknown)`, keeping the bytes and the accounts untouched. */
+function unlabelInner(src, parentIx, innerIx) {
+  const start = src.indexOf("export const INNER_BYTES = {");
+  if (start < 0) throw new Error("INNER_BYTES block not found");
+  const end = src.indexOf("} as const;", start);
+  const block = src.slice(start, end);
+  const re = new RegExp(
+    `(\\/\\*\\*\\s*)([^*]+?)(\\s*\\*\\/\\s*\\n\\s*\\[${parentIx}\\]\\[${innerIx}\\]:\\s*\\{)`,
+  );
+  if (!re.test(block)) throw new Error(`no label found above inner [${parentIx}][${innerIx}]`);
+  const mutated = block.replace(re, `$1(unknown)$3`);
+  if (mutated === block) throw new Error(`unlabel of inner [${parentIx}][${innerIx}] changed nothing`);
+  return src.slice(0, start) + mutated + src.slice(end);
+}
+
 /** Replace the label immediately above a given `[p][s]: {` entry in INNER_BYTES. */
 function relabelInner(src, parentIx, innerIx, newLabel) {
   const start = src.indexOf("export const INNER_BYTES = {");
@@ -177,6 +204,29 @@ const specs = [
     // entirely, so a false SPL label on this recipe would have had nothing to catch it.
     // Once the emitter names them, this control proves the check runs here too.
     mutate: (s) => relabelInner(s, 2, 0, "transfer on Toke…Q5DA"),
+  },
+  {
+    from: "remix-multi-4HZWSH28.ts",
+    to: "idl-name-withheld-cpi.ts",
+    why: "one CPI label deleted to `(unknown)` while its bytes remain nameable",
+    // The other half of the label check, and the one with no coverage until now: every
+    // name check is reached through `if (match.name)`, so withholding a name skipped all
+    // of them. out/remix-3yB9Q1pq.ts shipped exactly this state for five CPIs and the
+    // acceptance suite reported PASSED, because byte-identity is unaffected — the bytes
+    // were always right. The mutation is the one an emitter/IDL drift produces in
+    // practice: the recipe is not regenerated, the loader gets better, and the label
+    // silently lags behind what the tree can now name.
+    mutate: (s) => unlabelInner(s, 2, 1),
+  },
+  {
+    from: "remix-multi-4HZWSH28.ts",
+    to: "idl-name-withheld-top.ts",
+    why: "one top-level label deleted to `(unknown)` while its bytes remain nameable",
+    // Same blind spot on the outer loop, which is where `if (!ix.name) continue;` skips
+    // every named-field and native check. The recipe under test names this instruction
+    // `swap2`, which idl/multi/dflow resolves; blanking the label is not a smaller or
+    // weaker statement of the same fact, it is a missing one.
+    mutate: (s) => unlabelInstruction(s, 2),
   },
 ];
 

@@ -95,7 +95,7 @@ export const INSTRUCTION_BYTES = {
  * Account indexes address the same flat space as INSTRUCTION_BYTES.
  */
 export const INNER_BYTES = {
-  /** (unknown) on BiSo…Uypi */
+  /** swap2 on BiSo…Uypi */
   [2][0]: {
     program: "BiSoNHVpsVZW2F7rx2eQ59yQwKxzU5NvBcmKshCSUypi",
     accounts: [0, 4, 6, 1, 7, 2, 12, 12, 15, 14],
