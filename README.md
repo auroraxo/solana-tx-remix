@@ -63,6 +63,15 @@ The same script runs in CI and by hand, so a green badge and a local run are the
 claim. The `no control may go unjudged` step fails the build if the control table and the
 `neg/` directory ever disagree, so a control cannot quietly go untested.
 
+`node ci/v1-share.mjs` is a separate, slower measurement — it samples 24 blocks spread
+over roughly 32 minutes and prints how much of mainnet is version 1 (SIMD-0385). It is
+not part of acceptance and it never gates: the share moves with the chain, so a gate on
+it would be a gate on the weather. It ships because the number quoted below is a claim
+and its measurement path should be runnable by whoever doubts it, not just by whoever
+made it. Two independent version sources are counted side by side — the RPC's `version`
+key and the `0x81` byte in the transaction itself — and the script prints their
+disagreements rather than only the number they happen to agree on.
+
 `remix-from-signature.mjs` targets one program (Whirlpool) and names its fields from the
 program's generated codecs. It needs those codecs on disk — they are not shipped here —
 via `--idl <dir>` or `IDL_GEN_DIR`; without them it exits with a message naming the
@@ -180,6 +189,70 @@ share a line of code produce identical instruction bytes, account lists and load
 addresses for this transaction. If either side is wrong, one of them is wrong in the
 other's presence.
 
+## What a consumer's stack does with a v1 message (measured)
+
+A v1 recipe is only useful to a project whose libraries can read v1. So that was measured
+instead of assumed: 9674 mainnet transactions from 24 blocks (slots 459702377–459711577,
+2026-10-21 16:48–17:21Z), every transaction fed to the real parsers of seven published
+versions of two stacks, 400 per version class each.
+
+**How much is at stake.** Of those 9674 transactions, 4552 (47.1%) are v1 — 38.7% of the
+6277 that succeeded on chain. A second run of `ci/v1-share.mjs` about forty minutes later,
+on 8874 transactions, put it at 44.2% of all and 36.4% of successful; the range itself is
+the honest figure, because the share moves with the chain. The two version sources
+agreed on all 9674 transactions (0 disagreements), so the denominator is not an artifact
+of one RPC field.
+
+**The results, one row per published version:**
+
+| stack version | legacy wire | v0 wire | v1 wire | v1 re-serializable |
+|---|---|---|---|---|
+| `@solana/web3.js` 1.70.0 | 400/400 | 400/400 | **0/400** | no |
+| `@solana/web3.js` 1.91.0 | 400/400 | 400/400 | **0/400** | no |
+| `@solana/web3.js` 1.95.0 | 400/400 | 400/400 | **0/400** | no |
+| `@solana/web3.js` 1.98.4 | 400/400 | 400/400 | **0/400** | no |
+| `@solana/web3.js` 1.99.0 | 400/400 | 400/400 | 400/400 | **no — 0/150** |
+| `@solana/web3.js` 3.1.1 (latest) | 400/400 | 400/400 | 400/400 | yes — 300/300 byte-identical |
+| `@solana/kit` 8.5.0 | 400/400 | 400/400 | 400/400 | yes — 150/150 byte-identical |
+
+Read via `VersionedTransaction.deserialize()` (web3.js) and
+`getTransactionDecoder().decode()` (kit). The legacy `Transaction.from()` API fails on
+v0 and v1 alike in every version — that is its documented contract, not a defect; it is
+the versioned entry point that has to carry v1.
+
+**What the failures actually say.** Under 1.70.0 and 1.91.0 a v1 wire fails with
+`Expected signatures length to be equal to the number of required signatures` — it read
+the `0x81` version prefix as a shortvec signature count. Under 1.95.0 and 1.98.4 the same
+bytes fail with `Reached end of buffer unexpectedly`. Neither message contains the word
+*version* or the number *1*, so a caller catching them sees a malformed transaction where
+the chain saw an ordinary one. Under 1.99.0 the read succeeds and the write fails:
+`Serialization of version 1 transaction messages is not supported`, on 150 of 150
+samples. That version split the work — reading v1 landed on 2026-09-08, writing it did
+not, and the maintainers say it will not: solana-foundation/solana-web3.js#3908 was
+closed `not_planned` a week after 1.99.0 came out, with "We are not planning to add
+new features to v1.x — it's in maintenance only mode." So a `^1.70.3` range (which is
+what `@sqds/multisig@2.1.4` declares) resolves to a 1.99.0 that can display a v1
+transaction but not rebuild it, and anything older cannot show it at all.
+
+**Why v1 is not merely "a newer version":** the signature block moved to the end of the
+wire. A v0 shortvec signature count can never equal `0x81` — that bit means *continue*, so
+a leading `0x81` reads as at least 129 signatures, more than a whole transaction holds —
+which is exactly why pre-v1 parsers read the prefix as a count instead of as a version,
+and why the confusion is structural rather than a bug anyone can patch in isolation.
+
+**Two controls, because a table that fails everything is as worthless as one that passes
+everything:** legacy wire parses on all seven versions, and v0 wire parses on all seven.
+So each 0/400 above is specifically about v1. A second control on the corpus itself: byte 0
+being `0x81` predicted the RPC's `version: 1` on all 9674 transactions.
+
+Two limitations, stated rather than buried: each cell is 400 sampled transactions, not
+every transaction in every block; and web3.js 1.99.0 was tested for reading and writing
+but not for the full `sendAndConfirm` path, which was out of scope. `kit` 8.5.0 decodes
+v1 compiled messages into a different object shape than legacy and v0
+(`instructionHeaders`/`instructionPayloads` instead of `instructions`), so code that
+reaches for `message.instructions` reads `undefined` on a v1 message and fails later,
+away from the parse itself.
+
 ## Known limits (measured, not guessed)
 
 - Instruction names and argument layouts come from a supplied IDL directory, plus a pinned
@@ -213,8 +286,11 @@ other's presence.
   transactions, present for 0 of them), so a rule keyed on it never fired. `transactionConfig`
   means v1, a present `addressTableLookups` key means v0, neither means legacy. Presence,
   not length: a v0 message whose lookup array is *empty* is still v0, and 467 of 813 sampled
-  v0 messages are exactly that. v1 is roughly 37% of mainnet — a single-program recipe of it
-  now verifies byte for byte, which it did not before, because it was being called legacy.
+  v0 messages are exactly that. v1 is 44–47% of mainnet (47.1% of all transactions and 38.7%
+  of successful ones on 21.10, measured by `node ci/v1-share.mjs`, whose second run half an
+  hour later read 44.2% and 36.4%) — a single-program recipe of it now verifies byte for
+  byte, which it did not before, because it was being called legacy. The stacks those
+  recipes must land in are measured in the section above.
 - The generated `buildRemixedTransaction()` helper takes its version from `@solana/kit`, not
   from this tool's label: Kit's `TransactionVersion` is `'legacy' | 0`, so the emitter used to
   write `version: "v0"`, which does not typecheck. Nothing here compiles the generated code
