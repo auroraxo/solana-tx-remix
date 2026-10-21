@@ -16,6 +16,7 @@ import {
   buildRecipe,
   verifyRoundTrip,
   loadIdlFromGenerated,
+  renderInnerBytes,
   rpc,
 } from "./remix.mjs";
 import { decodeArgs, schemaForInstruction } from "./args.mjs";
@@ -157,13 +158,17 @@ lines.push(` * its readonly entries. Instruction account indexes address this ar
 lines.push(` * ${recipe.version === "v0" ? "this transaction" : "a legacy transaction"} needs the table contents.`);
 lines.push(` */`);
 lines.push(`export const LOOKUP_TABLE_ADDRESSES = [`);
+// Flat runtime order: all tables' writable addresses, then all tables' readonly.
+// This must mirror buildRecipe's addressSpace or every index past table 0 misresolves.
 recipe.lookupTables.forEach((t, ti) => {
   if (!t.resolved) {
     lines.push(`  /* table ${ti} ${t.table ?? "unknown"}: NOT RESOLVED — indexes past the static keys cannot be verified */`);
     return;
   }
-  lines.push(`  // table ${ti}: ${t.table}`);
   t.loadedWritable.forEach((a, i) => lines.push(`  ${JSON.stringify(a)}, // table ${ti} writable[${i}]`));
+});
+recipe.lookupTables.forEach((t, ti) => {
+  if (!t.resolved) return;
   t.loadedReadonly.forEach((a, i) => lines.push(`  ${JSON.stringify(a)}, // table ${ti} readonly[${i}]`));
 });
 lines.push(`] as const;`);
@@ -182,6 +187,7 @@ recipe.instructions.forEach((ix) => {
 });
 lines.push(`} as const;`);
 lines.push(``);
+lines.push(...renderInnerBytes(recipe));
 lines.push(`/** Flat address space: static keys, then each table's writable, then readonly entries. */`);
 lines.push(`const ADDRESSES = [...ACCOUNTS, ...LOOKUP_TABLE_ADDRESSES] as const;`);
 lines.push(``);

@@ -1,0 +1,121 @@
+/**
+ * make-negatives.mjs — derive the negative controls from the real recipes.
+ *
+ * A negative control is only evidence if the mutation is the ONLY difference between it and
+ * a recipe that passes. The controls this replaces were hand-copied from an earlier snapshot,
+ * so they failed verification for reasons unrelated to their mutation (missing
+ * ADDRESS_SPACE_SIZE, unresolved `lookup[N]` placeholders) — a test that fails for the wrong
+ * reason proves nothing about the check it is meant to exercise.
+ *
+ * Each control below is generated from `out/` and differs in exactly one declared way.
+ *
+ *   node src/make-negatives.mjs
+ */
+import fs from "node:fs";
+import path from "node:path";
+
+const outDir = path.resolve("out");
+const negDir = path.resolve("neg");
+fs.mkdirSync(negDir, { recursive: true });
+
+/** Find the first `data: "..."` inside the block starting at `export const NAME = {`. */
+function firstDataIn(src, exportName) {
+  const start = src.indexOf(`export const ${exportName} = {`);
+  if (start < 0) throw new Error(`${exportName} block not found`);
+  const end = src.indexOf("} as const;", start);
+  const rel = src.slice(start, end).indexOf('data: "');
+  if (rel < 0) throw new Error(`${exportName} has no data field`);
+  const q = start + rel + 'data: "'.length;
+  return { start: q, end: src.indexOf('"', q) };
+}
+
+/** Flip the last byte of a base64 payload — one byte, nothing else touched. */
+function flipLastByte(src, range) {
+  const b64 = src.slice(range.start, range.end);
+  const buf = Buffer.from(b64, "base64");
+  buf[buf.length - 1] ^= 0xff;
+  return src.slice(0, range.start) + buf.toString("base64") + src.slice(range.end);
+}
+
+/** Remove the last top-level instruction entry from INSTRUCTION_BYTES. */
+function dropLastInstruction(src) {
+  const start = src.indexOf("export const INSTRUCTION_BYTES = {");
+  const end = src.indexOf("} as const;", start);
+  const block = src.slice(start, end);
+  const last = block.lastIndexOf("\n  ");
+  // remove through the trailing comma of that entry
+  const trimmed = block.slice(0, last + 1);
+  return src.slice(0, start) + trimmed + src.slice(end);
+}
+
+const specs = [
+  {
+    from: "remix-6754RLWd.ts",
+    to: "arg-flip.ts",
+    why: "one instruction byte flipped",
+    mutate: (s) => flipLastByte(s, firstDataIn(s, "INSTRUCTION_BYTES")),
+  },
+  {
+    from: "remix-6754RLWd.ts",
+    to: "dropped.ts",
+    why: "last top-level instruction removed",
+    mutate: dropLastInstruction,
+  },
+  {
+    from: "remix-6754RLWd.ts",
+    to: "no-lut.ts",
+    why: "lookup-table contents stripped (indexes still claim to resolve)",
+    mutate: (s) =>
+      s.replace(
+        /export const LOOKUP_TABLE_ADDRESSES = \[[\s\S]*?\] as const;/,
+        "export const LOOKUP_TABLE_ADDRESSES = [ ] as const;",
+      ),
+  },
+  {
+    from: "remix-6754RLWd.ts",
+    to: "wrong-sig.ts",
+    why: "recipe re-labelled as a different signature",
+    mutate: (s) =>
+      s.replace(
+        /export const SOURCE_SIGNATURE = "[1-9A-HJ-NP-Za-km-z]+";/,
+        'export const SOURCE_SIGNATURE = "5yr3cjjNPu54MeRqYfSyTHfVUfSMwDAFgeyXNTRKRGtueWcCeLwVsBS4uBzFaeTeRgPpn9AVC7dCHWbQCHKNyvkA";',
+      ),
+  },
+  {
+    from: "remix-multi-3yB9Q1pq.ts",
+    to: "multi-arg-flip.ts",
+    why: "one top-level instruction byte flipped (multi-program recipe)",
+    mutate: (s) => flipLastByte(s, firstDataIn(s, "INSTRUCTION_BYTES")),
+  },
+  {
+    from: "remix-multi-3yB9Q1pq.ts",
+    to: "inner-flip.ts",
+    why: "one CPI byte flipped — exercises the inner-instruction check specifically",
+    mutate: (s) => flipLastByte(s, firstDataIn(s, "INNER_BYTES")),
+  },
+  {
+    from: "remix-6754RLWd.ts",
+    to: "inner-dropped.ts",
+    why: "one CPI removed — a recipe that silently drops inner instructions is a summary",
+    mutate: (s) => {
+      const start = s.indexOf("export const INNER_BYTES = {");
+      const end = s.indexOf("} as const;", start);
+      const block = s.slice(start, end);
+      const last = block.lastIndexOf("\n  ");
+      return s.slice(0, start) + block.slice(0, last + 1) + s.slice(end);
+    },
+  },
+];
+
+for (const spec of specs) {
+  const srcPath = path.join(outDir, spec.from);
+  if (!fs.existsSync(srcPath)) {
+    console.error(`SKIP ${spec.to}: ${spec.from} not present (run the emitter first)`);
+    continue;
+  }
+  const src = fs.readFileSync(srcPath, "utf8");
+  const mutated = spec.mutate(src);
+  if (mutated === src) throw new Error(`mutation for ${spec.to} changed nothing`);
+  fs.writeFileSync(path.join(negDir, spec.to), mutated);
+  console.log(`wrote neg/${spec.to}  <- ${spec.from}  (${spec.why})`);
+}

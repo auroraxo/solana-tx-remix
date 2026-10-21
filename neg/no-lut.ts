@@ -251,6 +251,99 @@ export const INSTRUCTION_BYTES = {
   },
 } as const;
 
+/**
+ * Inner (CPI) instructions the chain executed, keyed [parent instruction][slot].
+ * Verification-only: rebuilding the message must NOT append these — they are
+ * effects of the parent program's CPI, not parts of the signed message.
+ * Account indexes address the same flat space as INSTRUCTION_BYTES.
+ */
+export const INNER_BYTES = {
+  /** (unknown) on Toke…Q5DA */
+  [2][0]: {
+    program: "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    accounts: [15, 17, 8, 12],
+    data: "DAAAAAAAAAAACQ==",
+  },
+  /** (unknown) on Toke…xuEb */
+  [2][1]: {
+    program: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+    accounts: [14, 22, 10, 12],
+    data: "DAE19HABAAAABg==",
+  },
+  /** (unknown) on Toke…Q5DA */
+  [3][0]: {
+    program: "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    accounts: [15, 17, 8, 12],
+    data: "DAAAAAAAAAAACQ==",
+  },
+  /** (unknown) on Toke…xuEb */
+  [3][1]: {
+    program: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+    accounts: [14, 22, 10, 12],
+    data: "DAAAAAAAAAAABg==",
+  },
+  /** (unknown) on Toke…Q5DA */
+  [4][0]: {
+    program: "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    accounts: [15, 17, 8, 12],
+    data: "DFB7dAUAAAAACQ==",
+  },
+  /** (unknown) on Toke…xuEb */
+  [4][1]: {
+    program: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+    accounts: [14, 22, 10, 12],
+    data: "DOXDbJoEAAAABg==",
+  },
+  /** (unknown) on Toke…Q5DA */
+  [5][0]: {
+    program: "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    accounts: [15, 17, 8, 12],
+    data: "DAAAAAAAAAAACQ==",
+  },
+  /** (unknown) on Toke…xuEb */
+  [5][1]: {
+    program: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+    accounts: [14, 22, 10, 12],
+    data: "DBdu7QgAAAAABg==",
+  },
+  /** (unknown) on Toke…Q5DA */
+  [6][0]: {
+    program: "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    accounts: [8, 17, 15, 0],
+    data: "DAAAAAAAAAAACQ==",
+  },
+  /** (unknown) on Toke…xuEb */
+  [6][1]: {
+    program: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+    accounts: [14, 22, 10, 12],
+    data: "DAAAAAAAAAAABg==",
+  },
+  /** (unknown) on Toke…Q5DA */
+  [7][0]: {
+    program: "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    accounts: [8, 17, 15, 0],
+    data: "DAAAAAAAAAAACQ==",
+  },
+  /** (unknown) on Toke…xuEb */
+  [7][1]: {
+    program: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+    accounts: [10, 22, 14, 0],
+    data: "DBLu8q4FAAAABg==",
+  },
+  /** (unknown) on Toke…Q5DA */
+  [8][0]: {
+    program: "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    accounts: [8, 17, 15, 0],
+    data: "DKYY/RsAAAAACQ==",
+  },
+  /** (unknown) on Toke…xuEb */
+  [8][1]: {
+    program: "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+    accounts: [10, 22, 14, 0],
+    data: "DAAAAAAAAAAABg==",
+  },
+} as const;
+
 /** Flat address space: static keys, then each table's writable, then readonly entries. */
 const ADDRESSES = [...ACCOUNTS, ...LOOKUP_TABLE_ADDRESSES] as const;
 

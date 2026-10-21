@@ -38,7 +38,6 @@ export const ACCOUNTS = [
  * this transaction needs the table contents.
  */
 export const LOOKUP_TABLE_ADDRESSES = [
-  // table 0: 9Re4PV8SstkAFveSuVckncTJakQVS8aT3z8uZvWRY4QA
   "D5YqVMoSxnqeZAKAUUE1Dm3bmjtdxQ5DCF356ozqN9cM", // table 0 writable[0]
   "428MeYEAVcvCy6nhUhhA2kWR2oUpfZTTGnVcro2gqsMF", // table 0 writable[1]
   "3nnVbsCfN1mwUk2XSLCnjzY3bDDTdzpnKjvRmd8nESS2", // table 0 writable[2]
@@ -101,6 +100,45 @@ export const INSTRUCTION_BYTES = {
     program: "T1TANpTeScyeqVzzgNViGDNrkQ6qHz9KrSBS4aNXvGT",
     accounts: [0, 0, 8, 2, 3, 24, 25, 5, 26, 6, 6, 6, 9, 10, 27, 28, 29, 8, 24, 10, 28, 24, 9, 27, 30, 11, 31, 32, 12, 13, 14, 15, 33, 16, 5, 17, 18, 19, 20, 9, 10, 8, 24, 27, 24, 28, 29, 34, 8, 21, 22, 23, 9, 10, 24, 29, 35, 7],
     data: "KgLAXBUAAAAAAFpDCwIAAAAAyAACAAAUAwAAABgAAVVD3hMRDQAAAAAAAAAAAAH/ZM0dDw4AAAH9yZo7CQ==",
+  },
+} as const;
+
+/**
+ * Inner (CPI) instructions the chain executed, keyed [parent instruction][slot].
+ * Verification-only: rebuilding the message must NOT append these — they are
+ * effects of the parent program's CPI, not parts of the signed message.
+ * Account indexes address the same flat space as INSTRUCTION_BYTES.
+ */
+export const INNER_BYTES = {
+  /** (unknown) on Toke…Q5DA */
+  [4][0]: {
+    program: "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    accounts: [2, 9, 0],
+    data: "A8BcFQAAAAAA",
+  },
+  /** (unknown) on AQU1…Tz45 */
+  [4][1]: {
+    program: "AQU1FRd7papthgdrwPTTq5JacJh8YtwEXaBfKU3bTz45",
+    accounts: [29, 8, 24, 10, 28, 24, 9, 27, 30, 11, 31, 32, 12, 13, 14, 15],
+    data: "AcBcFQAAAAAA",
+  },
+  /** (unknown) on Toke…Q5DA */
+  [4][2]: {
+    program: "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    accounts: [13, 28, 10, 12],
+    data: "DOAhCwIAAAAABg==",
+  },
+  /** (unknown) on Toke…Q5DA */
+  [4][3]: {
+    program: "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    accounts: [9, 27, 15, 8],
+    data: "DMBcFQAAAAAACA==",
+  },
+  /** (unknown) on Toke…Q5DA */
+  [4][4]: {
+    program: "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+    accounts: [10, 3, 8],
+    data: "A3wUCwIAAAAA",
   },
 } as const;
 

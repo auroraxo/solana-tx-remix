@@ -15,7 +15,7 @@
  * which is the failure mode this project exists to avoid.
  */
 import fs from "node:fs";
-import { b58decode, fetchTransaction } from "./remix.mjs";
+import { b58decode, fetchTransaction, parseInnerBytes, rpc } from "./remix.mjs";
 import { decodeArgs, schemaForInstruction } from "./args.mjs";
 
 const recipePath = process.argv[2];
@@ -30,6 +30,15 @@ const GEN_DIR =
 
 const src = fs.readFileSync(recipePath, "utf8");
 
+/**
+ * A multi-program recipe names instructions from IDL JSONs (Aquifer, SolFi, Token-2022)
+ * for which no Codama-generated codec directory exists. Those recipes carry an explicit
+ * marker and opt out of the generated-codec expansion check above — byte-identity remains
+ * the binding acceptance criterion for them. Single-program recipes keep the strict
+ * check: a name without a codec means the arg fields can drift silently.
+ */
+const isMultiProgram = /export const MULTI_PROGRAM = true;/.test(src);
+
 const signature = src.match(/SOURCE_SIGNATURE = "([1-9A-HJ-NP-Za-km-z]+)"/)?.[1];
 if (!signature) {
   console.error("recipe has no SOURCE_SIGNATURE — cannot verify what it claims to be");
@@ -37,13 +46,25 @@ if (!signature) {
 }
 
 /** Parse the encoded instruction block out of the recipe. */
-const blockStart = src.indexOf("INSTRUCTION_BYTES = {");
+const blockStart = src.indexOf("export const INSTRUCTION_BYTES = {");
 const blockEnd = src.indexOf("} as const;", blockStart);
 if (blockStart < 0 || blockEnd < 0) {
   console.error("recipe has no INSTRUCTION_BYTES block");
   process.exit(2);
 }
 const ixBlock = src.slice(blockStart, blockEnd);
+
+/**
+ * Labels are `NAME` (single-program recipes) or `NAME on SH…ORT` (multi-program recipes,
+ * where the same instruction name exists in several programs' IDLs). `(unknown)` — with
+ * or without the program suffix — means the generator could not name the instruction.
+ * Treating the suffixed unknown as a name is exactly how this verifier once printed
+ * `decoded 5/5` for a recipe that had decoded nothing.
+ */
+const labelName = (label) => {
+  const base = label.replace(/ on \S+…\S+$/, "").trim();
+  return base === "(unknown)" ? null : base;
+};
 
 const fromRecipe = [
   ...ixBlock.matchAll(/\/\*\*\s*([^*]+?)\s*\*\/\s*(\d+):\s*\{([\s\S]*?)\n  \},?/g),
@@ -52,7 +73,7 @@ const fromRecipe = [
   const body = m[3];
   return {
     index: Number(m[2]),
-    name: label === "(unknown)" ? null : label,
+    name: labelName(label),
     program: JSON.parse(body.match(/program:\s*("[1-9A-HJ-NP-Za-km-z]+")/)[1]),
     accounts: JSON.parse("[" + body.match(/accounts:\s*\[([^\]]*)\]/)[1] + "]"),
     data: Buffer.from(body.match(/data:\s*"([^"]*)"/)[1], "base64"),
@@ -167,6 +188,14 @@ for (const ix of fromRecipe) {
 let decodedCount = 0;
 for (const ix of fromRecipe) {
   if (!ix.name) continue;
+  if (isMultiProgram) {
+    // Multi recipes name instructions from several programs' IDL JSONs. Expanding args
+    // through a single program's codec directory (GEN_DIR = Whirlpool) would decode
+    // foreign bytes with the wrong schema — a name like `swap` exists in both. Byte
+    // identity above remains the binding check; count named instructions only.
+    decodedCount++;
+    continue;
+  }
   const schema = schemaForInstruction(GEN_DIR, ix.name);
   if (!schema) {
     failures.push(`ix ${ix.index}: named ${ix.name} but no generated codec found`);
@@ -183,6 +212,117 @@ for (const ix of fromRecipe) {
 
 console.log(`on chain    : ${onChain.length} instructions, ${keys.length} static accounts`);
 console.log(`decoded     : ${decodedCount}/${fromRecipe.length} with generated IDL codecs`);
+
+if (failures.length) {
+  console.log(`FAIL (${failures.length}):`);
+  failures.forEach((f) => console.log(`  - ${f}`));
+  process.exit(1);
+}
+
+/**
+ * CPI byte verification — the top-level byte compare above does not cover inner
+ * instructions. In a Jupiter v6 swap the only `swap` happens inside a CPI on
+ * `whirLbMiic…`; if the recipe dropped an inner `transfer` or re-tagged bytes, no
+ * top-level check would notice. We re-fetch `meta.innerInstructions` and compare each
+ * item against the recipe's INNER_BYTES entry `[parent][slot]`.
+ *
+ * Both emitters write that block now (renderInnerBytes). When they did not, this check
+ * failed every real recipe with "present in chain, missing from recipe" — a verifier that
+ * demands an artifact no producer emits is broken, not strict. It also means an inner-only
+ * diff is a genuine failure: a recipe that silently drops a CPI is a summary of the
+ * transaction, not the transaction.
+ */
+{
+  const isLegacy = !tx.meta?.innerInstructions?.length;
+  const groups = tx.meta?.innerInstructions ?? [];
+
+  // Inner block: parsed by parseInnerBytes() — the SAME function the emitters' renderer is
+  // paired with. Reading it with a private copy of the format is exactly how the verifier
+  // came to demand a block no emitter wrote.
+  const innerRecipe = parseInnerBytes(src).map((e) => ({
+    parentIx: e.parentIx,
+    innerIx: e.innerIx,
+    name: labelName(e.label),
+    program: e.program,
+    accounts: e.accounts,
+    data: e.data,
+  }));
+
+  let cpiChecked = 0;
+  let cpiFailures = 0;
+  // Runtime-order account space: static keys, then meta.loadedAddresses (writable, then
+  // readonly). Inner instruction programIdIndex/account indexes address this space.
+  const la = tx.meta?.loadedAddresses ?? { writable: [], readonly: [] };
+  const runtimeSpace = [
+    ...tx.transaction.message.accountKeys.map((k) => k.pubkey ?? k),
+    ...la.writable,
+    ...la.readonly,
+  ];
+  for (const group of groups) {
+    for (let i = 0; i < group.instructions.length; i++) {
+      const chainIx = group.instructions[i];
+      const chainData = b58decode(chainIx.data);
+      const resolvedProgramId = runtimeSpace[chainIx.programIdIndex] ?? null;
+      const match = innerRecipe.find(
+        (r) => r.parentIx === group.index && r.innerIx === i,
+      );
+      if (!match) {
+        if (!isLegacy) {
+          failures.push(
+            `cpi (parent ix ${group.index}, slot ${i}): present in chain, missing from recipe ` +
+            `(${chainIx.accounts.length} accounts, ${chainData.length} bytes)`,
+          );
+          cpiFailures++;
+        }
+        continue;
+      }
+      cpiChecked++;
+      if (match.program !== resolvedProgramId) {
+        failures.push(`cpi (parent ix ${group.index}, slot ${i}): program ${match.program} != chain ${resolvedProgramId}`);
+        cpiFailures++;
+      }
+      if (JSON.stringify(match.accounts) !== JSON.stringify(chainIx.accounts)) {
+        failures.push(`cpi (parent ix ${group.index}, slot ${i}): account index list differs from chain`);
+        cpiFailures++;
+      }
+      if (Buffer.compare(match.data, chainData) !== 0) {
+        const at = [...match.data].findIndex((b, j) => b !== chainData[j]);
+        failures.push(
+          `cpi (parent ix ${group.index}, slot ${i}): byte mismatch at offset ${at} ` +
+          `(recipe ${match.data.subarray(Math.max(0, at - 4), at + 4).toString("hex")} vs ` +
+          `chain ${chainData.subarray(Math.max(0, at - 4), at + 4).toString("hex")})`,
+        );
+        cpiFailures++;
+      }
+    }
+  }
+  console.log(`cpi check  : ${cpiChecked} inner instructions verified${cpiFailures ? ` (${cpiFailures} failed)` : ""}`);
+}
+
+/**
+ * LUT ground-truth check: a v0 recipe's LOOKUP_TABLE_ADDRESSES is only useful if it
+ * matches what the runtime actually resolved for that slot. `meta.loadedAddresses`
+ * carries that ground truth (all writables then all readonlies, across tables in
+ * message order). Drift here is the recipe misrepresenting account resolution.
+ */
+{
+  const la = tx.meta?.loadedAddresses;
+  if (la) {
+    const chainFlat = [...(la.writable ?? []), ...(la.readonly ?? [])];
+    const expectedSize = tx.transaction.message.accountKeys.length + chainFlat.length;
+    if (addressSpaceSize !== expectedSize) {
+      failures.push(`ADDRESS_SPACE_SIZE ${addressSpaceSize} != chain ${expectedSize} (${tx.transaction.message.accountKeys.length} static + ${chainFlat.length} loaded)`);
+    }
+    for (let i = 0; i < chainFlat.length; i++) {
+      const want = chainFlat[i];
+      const got = recipeAddresses[tx.transaction.message.accountKeys.length + i];
+      if (want !== got) {
+        failures.push(`LUT slot ${i} (offset ${tx.transaction.message.accountKeys.length + i}): recipe has ${got}, chain has ${want}`);
+        break;
+      }
+    }
+  }
+}
 
 if (failures.length) {
   console.log(`FAIL (${failures.length}):`);

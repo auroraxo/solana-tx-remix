@@ -3,13 +3,23 @@
 One public transaction signature in, one editable, verifiable recipe out.
 
     node src/remix-from-signature.mjs <signature> [--program <programId>] [--idl <dir>]
+    node src/remix-multi.mjs <signature> [--multi-idl <dir>] [--gen-idl <dir>]
     node src/verify-recipe.mjs out/<recipe>.ts
+    node src/make-negatives.mjs   # regenerate the negative controls from out/
 
 No private key, no wallet, no signing is involved at any point.
+
+`remix-from-signature.mjs` targets one program (Whirlpool) and names its fields from the
+program's generated codecs. `remix-multi.mjs` is the common Solana case — an aggregator
+reaching a swap through several programs — and dispatches each instruction (top-level and
+CPI) against a directory of per-program IDLs instead of assuming one program's tags.
 
 ## What the recipe contains
 
 - every instruction's encoded bytes (base64), byte-identical to the chain
+- every **inner (CPI) instruction**'s bytes, keyed `[parent][slot]` — in an aggregator
+  transaction the instruction that matters is usually a CPI, and a recipe without them is
+  a summary of the transaction rather than the transaction
 - instruction names resolved from the program's own generated IDL codecs
 - argument fields decoded into named constants (`IX6_SWAP_V2_AMOUNT = 1n`)
 - account roles named from the IDL (`WHIRLPOOL`, `TICKARRAY0`, `TOKENVAULTA`)
@@ -24,17 +34,56 @@ transaction from an RPC and fails unless:
 2. every program address matches,
 3. every account index list matches,
 4. every instruction byte matches,
-5. every account index resolves to a real address inside the declared address space.
+5. every account index resolves to a real address inside the declared address space,
+6. every lookup-table entry matches what the runtime actually loaded,
+7. every **inner (CPI)** instruction's program, account list and bytes match
+   `meta.innerInstructions`.
 
-Verified against mutations: flipped argument byte, dropped instruction, wrong signature,
-and stripped lookup-table contents all fail; the unmodified recipe passes.
+The format the emitters write and the verifier reads is defined once (`renderInnerBytes` /
+`parseInnerBytes` in `src/remix.mjs`). It was previously defined twice, in two files: the
+verifier demanded a block no emitter produced, so all three positive controls failed with
+cpi mismatches against instructions the recipes never claimed to hold. A check and the
+artifact it checks must not drift independently — that failure mode is invisible in the
+check itself, which reports it as a defect in the recipe.
+
+### Negative controls
+
+`neg/` is generated from `out/` by `src/make-negatives.mjs`, so each control differs from a
+passing recipe in exactly one declared way. Controls that fail for an unrelated reason are
+evidence of nothing; the earlier hand-copied set did exactly that (they failed on a missing
+`ADDRESS_SPACE_SIZE`, not on their mutation).
+
+| control | mutation | expected failure |
+|---|---|---|
+| `arg-flip` | one instruction byte flipped | byte mismatch |
+| `dropped` | last instruction removed | instruction count |
+| `no-lut` | lookup-table contents stripped | unresolvable account index |
+| `wrong-sig` | recipe re-labelled as another signature | instructions absent on chain |
+| `multi-arg-flip` | same flip on a multi-program recipe | byte mismatch |
+| `inner-flip` | one CPI byte flipped | cpi byte mismatch |
+| `inner-dropped` | one CPI removed | cpi present in chain, missing from recipe |
+
+All seven fail. Five fail with exactly one failure, attributable to the mutation alone:
+`arg-flip`, `dropped`, `multi-arg-flip`, `inner-flip`, `inner-dropped`. Two cascade from a
+single mutation and say so: `no-lut` reports 83 unresolved indexes (every index past the
+static keys, once the table contents are gone) and `wrong-sig` reports 13 (instruction count
+plus one mismatch per instruction, against a transaction with a different shape). The three
+recipes in `out/` pass.
 
 ## Known limits (measured, not guessed)
 
 - Instruction names and argument layouts come from a supplied IDL directory. Without the
   right IDL, bytes still round-trip but names stay `null` — the tool reports `0/N decoded`
-  rather than inventing labels.
+  rather than inventing labels. On `3yB9Q1pq…` the multi-program path names 5 of 10
+  (5 CPI: SPL Token transfers, Aquifer `swap`); the 5 top-level instructions belong to
+  programs with no IDL in the directory and stay unnamed.
+- Per-program IDLs ship without addresses (`Aquifer`, `Solfi`, SPL Token). Those are bound
+  in `PROGRAM_NAME_ALIASES` in `src/idl-bitquery.mjs`, each a verified executable mainnet
+  program. Any new address goes through the same check, not a guess — a wrong binding
+  mislabels bytes silently, which is the failure mode the tool exists to catch elsewhere.
 - Account roles come from the IDL's account order. Where an IDL's order differs from the
   program's real one, labels are wrong even though the bytes are right.
 - `remainingAccountsInfo` is reported as raw base64 rather than decoded.
 - Compile fees, prioritization fees and blockhash are captured, not remixed.
+- Inner (CPI) instructions are recorded for verification only. Rebuilding the message must
+  not append them — they are the parent program's effects, not parts of the signed message.

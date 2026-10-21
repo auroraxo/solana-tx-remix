@@ -137,7 +137,7 @@ export async function fetchTransaction(signature) {
  * fine and is wrong. We resolve the table explicitly and mark any index we cannot resolve
  * instead of guessing.
  */
-export async function buildRecipe(tx, idlMap, { programId, programName, resolveLut = true }) {
+export async function buildRecipe(tx, idlMap, { programId, programName, resolveLut = true, nameFor = null }) {
   const msg = tx.transaction.message;
   const keys = msg.accountKeys.map((k) => k.pubkey ?? k);
   const luts = msg.addressTableLookups ?? [];
@@ -153,6 +153,15 @@ export async function buildRecipe(tx, idlMap, { programId, programName, resolveL
   const addressSpace = [...keys];
   const lutTables = [];
   if (isV0 && resolveLut && luts.length) {
+    // Flattening order: the runtime resolves lookup-table addresses as ALL writable
+    // addresses first (tables in message order, indexes ascending), then ALL readonly.
+    // Per-table `w, r` interleaving is indistinguishable for one table (the common case)
+    // but silently misresolves every index past the first table's readonly run when a
+    // transaction references two or more tables — verified against meta.loadedAddresses
+    // on mainnet tx Y2MiRPQCCQ5C7VYBCXNgKwt3p1MXJP47XFopnQ731UgkEYuqY95DVTZiw1ZJ6mu2xCg7zfeemZ4fn5iVN2LerKu
+    // (3 tables, 16 writable + 10 readonly: interleaved order diverges at offset 3).
+    const loadedWritable = [];
+    const loadedReadonly = [];
     for (const lut of luts) {
       // `addressTableLookups` entries carry the table address directly as `accountKey`;
       // there is no index into `accountKeys` for it.
@@ -171,6 +180,8 @@ export async function buildRecipe(tx, idlMap, { programId, programName, resolveL
       const at = (i) => (typeof parsed[i] === "string" ? parsed[i] : (parsed[i]?.address ?? null));
       const writable = lut.writableIndexes.map(at);
       const readonly = lut.readonlyIndexes.map(at);
+      loadedWritable.push(...writable);
+      loadedReadonly.push(...readonly);
       lutTables.push({
         table: tableAddress,
         loadedWritable: writable,
@@ -178,25 +189,43 @@ export async function buildRecipe(tx, idlMap, { programId, programName, resolveL
         resolved: parsed.length > 0 && writable.every(Boolean) && readonly.every(Boolean),
         entryCount: parsed.length,
       });
-      addressSpace.push(...writable, ...readonly);
     }
+    addressSpace.push(...loadedWritable, ...loadedReadonly);
   }
 
   const resolveIndex = (i) => (i < keys.length ? keys[i] : addressSpace[i] ?? null);
 
+  /**
+   * Instruction naming. `nameFor(program, data)` handles multi-program transactions where
+   * programs tag differently: Anchor uses a sha256-truncated 8-byte discriminator, SPL
+   * Token and BGL-style programs (Aquifer, SolFi) use a 1-byte tag followed directly by
+   * args. A wrong tag length reads arg bytes as discriminator — decodes nothing and never
+   * errors — so the resolver returns the tag length alongside the name.
+   */
+  const resolveName = (program, data) => {
+    if (nameFor) {
+      const hit = nameFor(program, data);
+      if (hit) return hit;
+    }
+    const known = idlMap?.get(data.subarray(0, 8).toString("hex"));
+    return known ? { ...known, tagLen: 8 } : null;
+  };
+
   const instructions = msg.instructions.map((ix, index) => {
     const programIndex = ix.programIdIndex;
     const data = b58decode(ix.data);
-    const disc = data.subarray(0, 8).toString("hex");
-    const known = idlMap.get(disc);
+    const program = resolveIndex(programIndex) ?? `program[${programIndex}]`;
+    const hit = resolveName(program, data);
+    const tagLen = hit?.tagLen ?? 8;
     return {
       index,
       programIndex,
-      program: resolveIndex(programIndex) ?? `program[${programIndex}]`,
-      isTarget: resolveIndex(programIndex) === programId,
-      discriminator: disc,
-      name: known ? known.name : null,
-      args: data.subarray(8),
+      program,
+      isTarget: program === programId,
+      discriminator: data.subarray(0, tagLen).toString("hex"),
+      tagLen,
+      name: hit ? hit.name : null,
+      args: data.subarray(tagLen),
       accountCount: ix.accounts.length,
       accounts: ix.accounts,
       accountAddresses: ix.accounts.map((a) => resolveIndex(a)),
@@ -216,17 +245,18 @@ export async function buildRecipe(tx, idlMap, { programId, programName, resolveL
     if (!parent) continue;
     for (const inner of group.instructions) {
       const data = b58decode(inner.data);
-      const disc = data.subarray(0, 8).toString("hex");
-      const known = idlMap.get(disc);
       const accounts = inner.accounts ?? [];
       const program = resolveIndex(inner.programIdIndex) ?? `program[${inner.programIdIndex}]`;
+      const hit = resolveName(program, data);
+      const tagLen = hit?.tagLen ?? 8;
       parent.inner.push({
         parentIndex: group.index,
         program,
         isTarget: program === programId,
-        discriminator: disc,
-        name: known ? known.name : null,
-        args: data.subarray(8),
+        discriminator: data.subarray(0, tagLen).toString("hex"),
+        tagLen,
+        name: hit ? hit.name : null,
+        args: data.subarray(tagLen),
         accountCount: accounts.length,
         accounts,
         accountAddresses: accounts.map((a) => resolveIndex(a)),
@@ -281,6 +311,87 @@ function writableAt(msg, staticWritable, i, lutTables, luts) {
 }
 
 /**
+ * Inner (CPI) instructions — the ONE format for writing and reading them.
+ *
+ * These two halves used to live apart: verify-recipe.mjs demanded an `INNER_BYTES` block
+ * while no emitter produced one, so every real recipe failed its own acceptance test with
+ * "cpi … present in chain, missing from recipe" for blocks that were never missing. A
+ * format the writer and the reader each define independently is a format that drifts.
+ * Both sides now import from here.
+ *
+ * Inner instructions are effects of a CPI, not entries of the signed message — they cannot
+ * be re-appended when rebuilding a transaction. They are recorded so verification can hold
+ * them against `meta.innerInstructions` byte for byte: in an aggregator flow the instruction
+ * that matters (the swap) only exists as a CPI.
+ */
+export function renderInnerBytes(recipe) {
+  const rows = [];
+  for (const ix of recipe.instructions) {
+    (ix.inner ?? []).forEach((inner, n) => rows.push({ parent: ix.index, n, inner }));
+  }
+  if (rows.length === 0) return [];
+  const out = [];
+  out.push(`/**`);
+  out.push(` * Inner (CPI) instructions the chain executed, keyed [parent instruction][slot].`);
+  out.push(` * Verification-only: rebuilding the message must NOT append these — they are`);
+  out.push(` * effects of the parent program's CPI, not parts of the signed message.`);
+  out.push(` * Account indexes address the same flat space as INSTRUCTION_BYTES.`);
+  out.push(` */`);
+  out.push(`export const INNER_BYTES = {`);
+  for (const { parent, n, inner } of rows) {
+    const data = Buffer.concat([Buffer.from(inner.discriminator, "hex"), inner.args]);
+    out.push(`  /** ${inner.name ?? "(unknown)"} on ${shortAddr(inner.program)} */`);
+    out.push(`  [${parent}][${n}]: {`);
+    out.push(`    program: ${JSON.stringify(inner.program)},`);
+    out.push(`    accounts: [${inner.accounts.join(", ")}],`);
+    out.push(`    data: "${data.toString("base64")}",`);
+    out.push(`  },`);
+  }
+  out.push(`} as const;`);
+  out.push(``);
+  return out;
+}
+
+/**
+ * Read back what `renderInnerBytes` writes. The program field is read leniently on purpose:
+ * a recipe that could not resolve an inner program must reach the byte compare and FAIL
+ * there with a readable mismatch, not crash the verifier on a regex miss.
+ */
+export function parseInnerBytes(src) {
+  const out = [];
+  const blockRe =
+    /export const INNER_BYTES = \{([\s\S]*?)\}\s*as const;|export const INNER\[\d+\] = \{([\s\S]*?)\}\s*as const;/g;
+  let m;
+  while ((m = blockRe.exec(src))) {
+    const block = m[1] ?? m[2];
+    for (const sub of block.matchAll(
+      /\/\*\*\s*([^*]+?)\s*\*\/\s*\[(\d+)\]\[(\d+)\]\s*:\s*\{([\s\S]*?)\n  \},?/g,
+    )) {
+      const body = sub[4];
+      const prog = body.match(/program:\s*("[^"]*")/);
+      const accts = body.match(/accounts:\s*\[([^\]]*)\]/);
+      const data = body.match(/data:\s*"([^"]*)"/);
+      if (!prog || !accts || !data) continue;
+      out.push({
+        parentIx: Number(sub[2]),
+        innerIx: Number(sub[3]),
+        label: sub[1].trim(),
+        program: JSON.parse(prog[1]),
+        accounts: JSON.parse("[" + accts[1] + "]"),
+        data: Buffer.from(data[1], "base64"),
+      });
+    }
+  }
+  return out;
+}
+
+/** Short readable form of a program address for labels: `Token…Q5DA`. */
+function shortAddr(addr) {
+  if (typeof addr !== "string" || addr.length < 8) return String(addr);
+  return addr.slice(0, 4) + "…" + addr.slice(-4);
+}
+
+/**
  * Rebuild instruction bytes from the recipe and compare with the original bytes.
  * This is the whole point: proof that the recipe is lossless, not a summary.
  */
@@ -289,14 +400,18 @@ export function verifyRoundTrip(recipe, originalTx) {
   const original = originalTx.transaction.message.instructions;
   for (const ix of recipe.instructions) {
     const originalData = b58decode(original[ix.index].data);
-    const originalDisc = originalData.subarray(0, 8).toString("hex");
-    const rebuiltDisc = Buffer.from(ix.discriminator, "hex");
+    // Discriminator length varies by program (8 for Anchor, 1 for SPL/BGL tags), so
+    // equality is decided on the reassembled instruction bytes — not on an assumed
+    // 8-byte prefix, which would mark a correctly sliced 1-byte-tag instruction as
+    // mismatched and an 8-sliced-but-tagged one as matched.
+    const rebuilt = Buffer.concat([Buffer.from(ix.discriminator, "hex"), ix.args]);
+    const tagBytes = ix.discriminator.length / 2;
     report.push({
       index: ix.index,
       discriminator: ix.discriminator,
-      discriminatorMatches: ix.discriminator === originalDisc,
+      discriminatorMatches: Buffer.compare(rebuilt, originalData) === 0,
       argBytes: ix.args.length,
-      argBytesMatch: Buffer.compare(ix.args, originalData.subarray(8)) === 0,
+      argBytesMatch: Buffer.compare(ix.args, originalData.subarray(tagBytes)) === 0,
       accountsMatch: JSON.stringify(ix.accounts) === JSON.stringify(original[ix.index].accounts),
     });
   }
