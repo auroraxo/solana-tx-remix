@@ -290,8 +290,9 @@ away from the parse itself.
   not length: a v0 message whose lookup array is *empty* is still v0, and 467 of 813 sampled
   v0 messages are exactly that. v1 is 37–47% of mainnet when measured: `node ci/v1-share.mjs`
   read 47.1% of all transactions and 38.7% of successful ones on 21.10 (second run half an
-  hour later: 44.2% and 36.4%), then 38.8% and 30.8% on 22.10 — the share moves with the
-  chain, so these are dated runs, not a constant. A single-program recipe of it now verifies byte for
+  hour later: 44.2% and 36.4%), then three runs on 22.10 read 37.6–39.8% of all (24-block
+  run: 38.8% of all, 30.8% of successful) — the share moves with the chain, so these are
+  dated runs, not a constant. A single-program recipe of it now verifies byte for
   byte, which it did not before, because it was being called legacy. The stacks those
   recipes must land in are measured in the section above.
 - The generated `buildRemixedTransaction()` helper takes its version from `@solana/kit`, not
