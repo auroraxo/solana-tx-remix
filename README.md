@@ -198,10 +198,12 @@ versions of two stacks, 400 per version class each.
 
 **How much is at stake.** Of those 9674 transactions, 4552 (47.1%) are v1 — 38.7% of the
 6277 that succeeded on chain. A second run of `ci/v1-share.mjs` about forty minutes later,
-on 8874 transactions, put it at 44.2% of all and 36.4% of successful; the range itself is
-the honest figure, because the share moves with the chain. The two version sources
-agreed on all 9674 transactions (0 disagreements), so the denominator is not an artifact
-of one RPC field.
+on 8874 transactions, put it at 44.2% of all and 36.4% of successful. A run the next day
+(22.10, 9311 transactions over 24 blocks) read 38.8% of all and 30.8% of successful — so
+the range itself is the honest figure, because the share moves with the chain, and every
+number here is dated to the day it was measured rather than offered as a standing
+property of the network. The two version sources agreed on all 9674 transactions (0
+disagreements), so the denominator is not an artifact of one RPC field.
 
 **The results, one row per published version:**
 
@@ -286,9 +288,10 @@ away from the parse itself.
   transactions, present for 0 of them), so a rule keyed on it never fired. `transactionConfig`
   means v1, a present `addressTableLookups` key means v0, neither means legacy. Presence,
   not length: a v0 message whose lookup array is *empty* is still v0, and 467 of 813 sampled
-  v0 messages are exactly that. v1 is 44–47% of mainnet (47.1% of all transactions and 38.7%
-  of successful ones on 21.10, measured by `node ci/v1-share.mjs`, whose second run half an
-  hour later read 44.2% and 36.4%) — a single-program recipe of it now verifies byte for
+  v0 messages are exactly that. v1 is 37–47% of mainnet when measured: `node ci/v1-share.mjs`
+  read 47.1% of all transactions and 38.7% of successful ones on 21.10 (second run half an
+  hour later: 44.2% and 36.4%), then 38.8% and 30.8% on 22.10 — the share moves with the
+  chain, so these are dated runs, not a constant. A single-program recipe of it now verifies byte for
   byte, which it did not before, because it was being called legacy. The stacks those
   recipes must land in are measured in the section above.
 - The generated `buildRemixedTransaction()` helper takes its version from `@solana/kit`, not
