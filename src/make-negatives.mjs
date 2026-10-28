@@ -176,6 +176,20 @@ const specs = [
     },
   },
   {
+    from: "remix-6754RLWd.ts",
+    to: "idl-name-top-whirlpool.ts",
+    why: "top-level Whirlpool `SWAP_V2` relabelled `SWAP` — bytes untouched, only the label false",
+    // The control the stored on-chain IDL exists to enable. `SWAP_V2` and `SWAP` are both
+    // real Whirlpool instructions, so a label-only check that trusts the label is blind to
+    // this — and the OLD verifier could not even ask: it looked the argument layout up BY
+    // the label (`schemaForInstruction(GEN_DIR, name)`), so a false label found a false
+    // layout and decoded it happily, then reported named fields as proof. The stored IDL is
+    // keyed the other way round: the bytes name their own discriminator, and the name must
+    // be the label the recipe ships. Different key order is the whole point — it is what
+    // makes this mutation detectable.
+    mutate: (s) => relabelInstruction(s, 6, "SWAP"),
+  },
+  {
     from: "remix-multi-4HZWSH28.ts",
     to: "idl-name-swap2.ts",
     why: "dflow `swap2` relabelled `swap` — bytes untouched, only the label false",

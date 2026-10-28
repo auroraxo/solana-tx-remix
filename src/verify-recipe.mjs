@@ -17,6 +17,11 @@
 import fs from "node:fs";
 import { b58decode, fetchTransaction, parseInnerBytes, rpc } from "./remix.mjs";
 import { decodeArgs, schemaForInstruction } from "./args.mjs";
+import {
+  WHIRLPOOL_PROGRAM,
+  decodeWithSememe,
+  sememeStatus,
+} from "./sememe-idl.mjs";
 import { encodeNative, decodeNative, isNativeProgram, isNativeName, nativeProgramLabel } from "./native.mjs";
 import { buildMultiResolver, multiIdlDirPresent, multiIdlProgramCount } from "./dispatch.mjs";
 
@@ -29,6 +34,32 @@ if (!recipePath) {
 const GEN_DIR =
   process.env.IDL_GEN_DIR ||
   `${process.env.HOME}/github_repos/orca-whirlpools-recon/ts-sdk/client/src/generated/instructions`;
+
+/**
+ * The second decoder: the program's own on-chain IDL, pulled by sememe and stored
+ * content-addressed with a receipt that records program, source account, slot and
+ * fingerprint. The fingerprint is RE-CHECKED against the object's own bytes before it is
+ * used (see src/sememe-idl.mjs) — the receipt is a claim, the recomputed digest is the
+ * check.
+ *
+ * Why a second, independent decoder at all: the emitter writes argument names from the
+ * generated codecs, and the verifier used to read them back with the SAME generated codecs.
+ * A wrong argument layout in the generated code would therefore be invisible — both sides
+ * agreed with each other and with nothing else. The stored IDL comes from the chain by
+ * different code, so agreement between the two is evidence, not tautology.
+ *
+ * When only one decoder is available the check still runs, from the one that is. Which one
+ * ran is printed, so a report can never be read as "both agreed" when only one was asked.
+ */
+const sememe = await sememeStatus(WHIRLPOOL_PROGRAM);
+const sememeUsable = sememe.usable;
+if (!sememeUsable) {
+  console.log(`sememe      : unavailable — ${sememe.error}`);
+} else {
+  console.log(
+    `sememe      : ${sememe.fingerprint} (slot ${sememe.receipt.slot}, ${sememe.receipt.source}) — fingerprint re-verified against the stored bytes`,
+  );
+}
 
 const src = fs.readFileSync(recipePath, "utf8");
 
@@ -263,7 +294,14 @@ for (const ix of fromRecipe) {
 // 2. Named-field round trip: decode the recipe's stored bytes with the program's own IDL,
 //    re-encode nothing — instead confirm each named instruction's discriminator and arg
 //    length are consistent, so names cannot drift from bytes silently.
+//
+//    Since the migration it is TWO decoders when both are present: the generated codecs and
+//    the fingerprint-verified on-chain IDL from the sememe store. `crossChecked` counts the
+//    instructions both asked about and agreed on; printed per instruction above.
 let decodedCount = 0;
+let crossChecked = 0;
+let crossFields = 0;
+let crossRefused = 0;
 for (const ix of fromRecipe) {
   if (!ix.name) continue;
 
@@ -337,21 +375,134 @@ for (const ix of fromRecipe) {
     continue;
   }
   const schema = schemaForInstruction(GEN_DIR, ix.name);
-  if (!schema) {
-    failures.push(`ix ${ix.index}: named ${ix.name} but no generated codec found`);
-    continue;
+  const hasGenerated = Boolean(schema);
+
+  /**
+   * The migration: decode these bytes from the stored, fingerprint-verified on-chain IDL
+   * instead of from generated codecs that are not in this repository.
+   *
+   * Three things are checked, in the order they fail:
+   *  1. the IDL names its own discriminator, and that name must be the recipe's label
+   *     (the check the generated path could not make: it looked the layout up BY the label,
+   *     so a wrong label found a wrong layout and decoded it happily);
+   *  2. the decode must produce named fields;
+   *  3. every byte must be accounted for — bytes beyond what the IDL describes mean the
+   *     recipe is shipping an argument this decoder does not explain, which is a claim the
+   *     recipe cannot support.
+   */
+  let decodedCounted = false;
+  if (sememeUsable) {
+    const viaStore = await decodeWithSememe(ix.data, ix.program);
+    if (viaStore.error) {
+      failures.push(`ix ${ix.index}: stored IDL cannot decode ${ix.name}: ${viaStore.error}`);
+      continue;
+    }
+    if (viaStore.idlName.toUpperCase() !== ix.name.toUpperCase()) {
+      failures.push(
+        `ix ${ix.index}: stored IDL names these bytes ${viaStore.idlName}, recipe claims ${ix.name}`,
+      );
+      continue;
+    }
+    const namedKeys = Object.keys(viaStore.args);
+    if (namedKeys.length === 0) {
+      failures.push(`ix ${ix.index}: ${ix.name} decoded to zero named fields`);
+      continue;
+    }
+    if (viaStore.trailing.count > 0) {
+      failures.push(
+        `ix ${ix.index}: ${ix.name} has ${viaStore.trailing.count} byte(s) the stored IDL does not describe ` +
+          `(offset ${viaStore.consumed} of ${viaStore.bytes}) — the recipe ships arguments it cannot explain`,
+      );
+      continue;
+    }
+
+    // Second opinion, when the generated codecs are also on this machine. The two decoders
+    // are independent — different code, different provenance for the layout — so agreement
+    // is evidence. Snake/camel is a naming convention on each side; values are compared
+    // after mapping, and the fields one side cannot decode are counted, not counted as
+    // disagreements (the generated path refuses `option`/`defined` args outright).
+    if (hasGenerated) {
+      const viaGenerated = decodeArgs(schema, ix.data.subarray(8));
+      const toSnake = (s) => s.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`);
+      const refusal = (v) =>
+        v && typeof v === "object" &&
+        ("__optionRemaining" in v || "__unsupportedDecoder" in v || "__truncated" in v);
+      const generatedNamed = Object.fromEntries(
+        Object.entries(viaGenerated).filter(([k]) => !k.startsWith("__")).map(([k, v]) => [toSnake(k), v]),
+      );
+      const disagreements = [];
+      let compared = 0;
+      let refusedByGenerated = 0;
+      let onlySememe = [];
+      let onlyGenerated = [];
+      for (const key of new Set([...Object.keys(generatedNamed), ...Object.keys(viaStore.args)])) {
+        const inGenerated = key in generatedNamed;
+        const inStore = key in viaStore.args;
+        if (!inGenerated) { onlySememe.push(key); continue; }
+        if (!inStore) { onlyGenerated.push(key); continue; }
+        compared++;
+        if (refusal(generatedNamed[key])) { refusedByGenerated++; continue; }
+        if (JSON.stringify(generatedNamed[key]) !== JSON.stringify(viaStore.args[key])) {
+          disagreements.push(
+            `${key}: generated=${JSON.stringify(generatedNamed[key])} stored=${JSON.stringify(viaStore.args[key])}`,
+          );
+        }
+      }
+      if (disagreements.length) {
+        failures.push(
+          `ix ${ix.index}: decoders disagree on ${ix.name} — ${disagreements.join("; ")} ` +
+            `(stored IDL ${sememe.fingerprint})`,
+        );
+        continue;
+      }
+      if (onlySememe.length || onlyGenerated.length) {
+        failures.push(
+          `ix ${ix.index}: decoders disagree on the FIELD SET of ${ix.name} — ` +
+            `only in stored IDL: [${onlySememe.join(", ")}]; only in generated: [${onlyGenerated.join(", ")}]`,
+        );
+        continue;
+      }
+      crossChecked++;
+      crossFields += compared;
+      crossRefused += refusedByGenerated;
+      console.log(
+        `  ix ${ix.index} ${ix.name}: both decoders agree — ${compared} field(s), ` +
+          `${refusedByGenerated} refused by the generated path, 0 disagreements`,
+      );
+    } else {
+      console.log(
+        `  ix ${ix.index} ${ix.name}: decoded from the stored IDL only (${namedKeys.length} field(s)) — generated codecs not present, no second opinion`,
+      );
+    }
+    decodedCounted = true;
   }
-  const decoded = decodeArgs(schema, ix.data.subarray(8));
-  const namedKeys = Object.keys(decoded).filter((k) => !k.startsWith("__"));
-  if (namedKeys.length === 0 && schema.length > 1) {
-    failures.push(`ix ${ix.index}: ${ix.name} decoded to zero named fields`);
-    continue;
+
+  // Fall-through to the generated-codec path when the stored artifact is unavailable —
+  // the historical behaviour, kept so a machine with neither still reports SKIP rather
+  // than a spurious failure.
+  if (!decodedCounted) {
+    if (!hasGenerated) {
+      failures.push(`ix ${ix.index}: named ${ix.name} but no generated codec found`);
+      continue;
+    }
+    const decoded = decodeArgs(schema, ix.data.subarray(8));
+    const namedKeys = Object.keys(decoded).filter((k) => !k.startsWith("__"));
+    if (namedKeys.length === 0) {
+      failures.push(`ix ${ix.index}: ${ix.name} decoded to zero named fields`);
+      continue;
+    }
   }
   decodedCount++;
 }
 
 console.log(`on chain    : ${onChain.length} instructions, ${keys.length} static accounts`);
-console.log(`decoded     : ${decodedCount}/${fromRecipe.length} with generated IDL codecs`);
+console.log(`decoded     : ${decodedCount}/${fromRecipe.length} named instructions`);
+if (sememeUsable) {
+  console.log(
+    `cross-check : ${crossChecked} instruction(s), ${crossFields} field(s) compared, ` +
+      `${crossRefused} refused by the generated decoder, 0 disagreements (stored IDL ${sememe.fingerprint})`,
+  );
+}
 
 // No early exit here. Every acceptance check below must run before any verdict is printed:
 // this block used to `process.exit(1)` whenever a top-level check had already failed, which
