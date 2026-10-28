@@ -19,6 +19,7 @@ import { b58decode, fetchTransaction, parseInnerBytes, rpc } from "./remix.mjs";
 import { decodeArgs, schemaForInstruction } from "./args.mjs";
 import {
   WHIRLPOOL_PROGRAM,
+  BROKEN,
   decodeWithSememe,
   sememeStatus,
 } from "./sememe-idl.mjs";
@@ -53,12 +54,25 @@ const GEN_DIR =
  */
 const sememe = await sememeStatus(WHIRLPOOL_PROGRAM);
 const sememeUsable = sememe.usable;
-if (!sememeUsable) {
-  console.log(`sememe      : unavailable — ${sememe.error}`);
-} else {
+// The failure list is declared here rather than further down: the stored-artifact check
+// below can fail on its own, before a single instruction is looked at.
+const failures = [];
+if (sememeUsable) {
   console.log(
     `sememe      : ${sememe.fingerprint} (slot ${sememe.receipt.slot}, ${sememe.receipt.source}) — fingerprint re-verified against the stored bytes`,
   );
+} else if (sememe.reason === BROKEN) {
+  // A store that EXISTS and does not verify is a defect in the artifact, not an absent
+  // dependency. Falling back to the generated codecs here would turn tampering into a
+  // green run: the check finds the damage, declines to use the result, and then reports
+  // success on half a verification. So it is recorded as a failure for the whole recipe,
+  // before any instruction is looked at.
+  failures.push(
+    `stored sememe artifact for ${WHIRLPOOL_PROGRAM} is present but does not verify: ${sememe.error}`,
+  );
+  console.log(`sememe      : BROKEN — ${sememe.error}`);
+} else {
+  console.log(`sememe      : unavailable — ${sememe.error}`);
 }
 
 const src = fs.readFileSync(recipePath, "utf8");
@@ -177,8 +191,6 @@ const onChain = tx.transaction.message.instructions.map((ix) => ({
   data: b58decode(ix.data),
 }));
 const keys = tx.transaction.message.accountKeys.map((k) => k.pubkey ?? k);
-
-const failures = [];
 
 // 0z. The recipe's own message-version claim, checked against the chain.
 //

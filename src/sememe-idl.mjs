@@ -81,58 +81,81 @@ async function loadCodec() {
 }
 
 /**
+ * Why the stored artifact is not usable, if it is not.
+ *
+ * The distinction matters: a machine that simply does not HAVE a sememe store is a
+ * normal state (the verifier falls back to the generated codecs and reports SKIP), while
+ * a machine that HAS one and it does not verify is a defect that must be reported as a
+ * failure. Collapsing the two is how a tampered or corrupted artifact becomes a green
+ * run: the check finds the damage, cannot use the result, and quietly proceeds without it.
+ *
+ *   absent   — nothing here: no checkout, no store, or no receipt for this program
+ *   broken   — something is here and it is wrong: unreadable, malformed, or the object's
+ *              bytes do not re-hash to the fingerprint the receipt claims
+ */
+export const ABSENT = "absent";
+export const BROKEN = "broken";
+
+/**
  * Read a stored IDL for `program` and RE-CHECK its fingerprint against its own bytes.
  *
- * Returns `{ idl, receipt, fingerprint, object }` or `null`. The fingerprint check is the
- * whole point of using a store instead of a JSON file dropped in the tree: the receipt
+ * Returns `{ idl, receipt, fingerprint, object, reason, error }`. The fingerprint check is
+ * the whole point of using a store instead of a JSON file dropped in the tree: the receipt
  * claims provenance, and the recomputed digest proves the object is the one that was
- * claimed. A mismatch returns `null` with `error` — decoding unverified schema would be
- * exactly the "vendored IDL without provenance" failure this repository documents.
+ * claimed. A mismatch is reported as `broken`, never as a usable IDL.
  */
 export async function loadStoredIdl(program = WHIRLPOOL_PROGRAM) {
   const source = await loadCodec();
-  if (source.error) return { idl: null, error: source.error };
+  if (source.error) return { idl: null, reason: ABSENT, error: source.error };
 
   const store = sememeStoreDir();
   const receiptsDir = path.join(store, "receipts");
   if (!fs.existsSync(receiptsDir)) {
-    return { idl: null, error: `no sememe store at ${store} (set SEMEME_STORE or run sememe pull)` };
+    return { idl: null, reason: ABSENT, error: `no sememe store at ${store} (set SEMEME_STORE or run sememe pull)` };
   }
   const candidates = fs.readdirSync(receiptsDir).filter((n) => n.startsWith(`${program}-`)).sort();
-  if (!candidates.length) return { idl: null, error: `store ${store} has no receipt for ${program}` };
+  if (!candidates.length) return { idl: null, reason: ABSENT, error: `store ${store} has no receipt for ${program}` };
 
   const receiptName = candidates[candidates.length - 1];
   let receipt;
   try {
     receipt = JSON.parse(fs.readFileSync(path.join(receiptsDir, receiptName), "utf8"));
   } catch (error) {
-    return { idl: null, error: `unreadable receipt ${receiptName}: ${error.message}` };
+    return { idl: null, reason: BROKEN, error: `unreadable receipt ${receiptName}: ${error.message}` };
   }
 
   const claimed = String(receipt.fingerprint ?? "").replace(/^sha256:/, "");
-  if (!/^[a-f0-9]{64}$/.test(claimed)) return { idl: null, error: `receipt ${receiptName} has a malformed fingerprint` };
+  if (!/^[a-f0-9]{64}$/.test(claimed)) {
+    return { idl: null, reason: BROKEN, error: `receipt ${receiptName} has a malformed fingerprint: ${receipt.fingerprint}` };
+  }
 
   const objectPath = path.join(store, "objects", `${claimed}.json`);
-  if (!fs.existsSync(objectPath)) return { idl: null, error: `store object ${claimed}.json is missing` };
+  if (!fs.existsSync(objectPath)) {
+    return { idl: null, reason: BROKEN, error: `receipt ${receiptName} claims ${claimed} but the store object is missing` };
+  }
 
-  let raw;
   let idl;
   try {
-    raw = fs.readFileSync(objectPath, "utf8");
-    idl = JSON.parse(raw);
+    idl = JSON.parse(fs.readFileSync(objectPath, "utf8"));
   } catch (error) {
-    return { idl: null, error: `unreadable store object: ${error.message}` };
+    return { idl: null, reason: BROKEN, error: `unreadable store object ${claimed}.json: ${error.message}` };
   }
-  if (!Array.isArray(idl?.instructions)) return { idl: null, error: `store object ${claimed} has no instructions` };
+  if (!Array.isArray(idl?.instructions)) {
+    return { idl: null, reason: BROKEN, error: `store object ${claimed} has no instructions` };
+  }
 
   // Re-hash. `pull` writes sha256(canonicalJson(idl) + '\n'), so verify with the same
   // canonicalizer rather than with JSON.stringify, whose key order is not the stored order.
   const actual = createHash("sha256").update(`${source.canonicalJson(idl)}\n`).digest("hex");
   if (actual !== claimed) {
-    return { idl: null, error: `store object ${claimed} re-hashes to ${actual} — object and receipt disagree` };
+    return {
+      idl: null,
+      reason: BROKEN,
+      error: `store object ${claimed} re-hashes to ${actual} — object and receipt disagree`,
+    };
   }
 
-  return { idl, receipt, fingerprint: `sha256:${actual}`, object: objectPath, error: null };
+  return { idl, receipt, fingerprint: `sha256:${actual}`, object: objectPath, reason: null, error: null };
 }
 
 /**
@@ -144,7 +167,7 @@ export async function loadStoredIdl(program = WHIRLPOOL_PROGRAM) {
  */
 export async function decodeWithSememe(data, program = WHIRLPOOL_PROGRAM) {
   const stored = await loadStoredIdl(program);
-  if (stored.error) return { error: stored.error };
+  if (stored.error) return { error: stored.error, reason: stored.reason };
   const source = await loadCodec();
   try {
     const decoded = source.codec.decodeInstructionData(stored.idl, data, { trailing: "report" });
@@ -164,15 +187,29 @@ export async function decodeWithSememe(data, program = WHIRLPOOL_PROGRAM) {
 
 /**
  * What this machine can do, for a verifier that must say WHY a claim is unverifiable.
- * Returns `{ source, store, idl, error, usable }`.
+ * Returns `{ source, store, idl, reason, error, usable }`, where `reason` is `absent`
+ * (nothing here — the caller may fall back) or `broken` (something is here and it is wrong
+ * — the caller must not fall back silently).
  */
 export async function sememeStatus(program = WHIRLPOOL_PROGRAM) {
   const source = await loadCodec();
-  if (source.error) return { usable: false, error: source.error, source: null, store: null, idl: null };
+  if (source.error) {
+    return { usable: false, reason: ABSENT, error: source.error, source: null, store: null, idl: null };
+  }
   const stored = await loadStoredIdl(program);
-  if (stored.error) return { usable: false, error: stored.error, source: sememeSourceDir(), store: sememeStoreDir(), idl: null };
+  if (stored.error) {
+    return {
+      usable: false,
+      reason: stored.reason,
+      error: stored.error,
+      source: sememeSourceDir(),
+      store: sememeStoreDir(),
+      idl: null,
+    };
+  }
   return {
     usable: true,
+    reason: null,
     error: null,
     source: sememeSourceDir(),
     store: sememeStoreDir(),

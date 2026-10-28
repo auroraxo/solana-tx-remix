@@ -40,6 +40,13 @@
  * failures are missing-codec failures is reported SKIP, not PASS and not FAIL — it is
  * unverifiable here rather than wrong. If someone sets IDL_GEN_DIR and the recipe then
  * fails for any other reason, that is a real FAIL.
+ *
+ * Since the sememe migration the flagship recipe is no longer in that category: its
+ * arguments are decoded from the vendored, fingerprint-verified on-chain IDL
+ * (idl/sememe-store/), so it verifies here instead of reporting SKIP. The SKIP path stays
+ * for a machine with neither the generated codecs nor the sememe checkout — but on CI the
+ * absence of a PASS for out/remix-6754RLWd.ts is now a finding, not a shrug, and check 5
+ * below makes that explicit.
  */
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
@@ -54,6 +61,10 @@ const NEGATIVES = path.join(ROOT, "src", "make-negatives.mjs");
 const RPC = process.env.SOLANA_RPC || "https://api.mainnet-beta.solana.com";
 const FETCH_RE = /cannot fetch source transaction|fetch failed|ECONNREFUSED|ECONNRESET|ENOTFOUND|429|502|503|504/i;
 const CODEC_RE = /but no generated codec found/;
+// A recipe that can be verified without the generated codecs: its arguments come from the
+// vendored on-chain IDL instead. Before the sememe migration this was empty, and the
+// flagship recipe reported SKIP in CI.
+const SEMEME_CAPABLE = /^remix-6754RLWd\.ts$/;
 const FETCH_ATTEMPTS = 3;
 
 const red = [];
@@ -131,6 +142,12 @@ for (const r of recipes) {
     const codecOnly = lines.length > 0 && lines.every((l) => CODEC_RE.test(l));
     if (codecOnly) {
       note(`SKIP  out/${r} — needs IDL_GEN_DIR (Whirlpool codecs are not vendored; README documents this)`);
+      if (SEMEME_CAPABLE.test(r)) {
+        flag(
+          `out/${r} is verifiable from the vendored sememe store and still reports SKIP — ` +
+            `the migration is not in effect (is idl/sememe-store/ present, and SEMEME_DIR set?)`,
+        );
+      }
     } else {
       flag(`out/${r} does not reproduce its transaction:\n${lines.map((l) => `      ${l.trim()}`).join("\n")}`);
     }
