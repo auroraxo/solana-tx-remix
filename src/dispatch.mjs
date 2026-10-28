@@ -60,23 +60,34 @@ export function defaultGeneratedIdlDir() {
  * returns an empty map for it, and the verifier reports that as an unverifiable claim
  * rather than as a pass.
  */
-export function buildMultiResolver({ multiIdlDir, genIdlDir } = {}) {
+export function buildMultiResolver({ multiIdlDir, genIdlDir, genIdlMap } = {}) {
   const byProgram = loadProgramDispatch(multiIdlDir ?? defaultMultiIdlDir());
 
   const anchorExtra = new Map();
-  const genDir = genIdlDir ?? defaultGeneratedIdlDir();
-  let generated = new Map();
-  try {
-    generated = loadIdlFromGenerated(genDir);
-  } catch {
-    generated = new Map();
+  // A caller that already has a discriminator table — the emitters now build one from the
+  // stored on-chain IDL — passes it directly instead of a directory of generated modules.
+  // Both are the same shape (discriminator hex -> { name, ... }) so the resolver cannot
+  // tell them apart, which is the point: the name comes from bytes either way.
+  let generated = genIdlMap instanceof Map ? genIdlMap : new Map();
+  if (!(genIdlMap instanceof Map)) {
+    const genDir = genIdlDir ?? defaultGeneratedIdlDir();
+    try {
+      generated = loadIdlFromGenerated(genDir);
+    } catch {
+      generated = new Map();
+    }
+    if (generated.size > 0) {
+      const p = { anchor: new Map(), tag: new Map(), sources: new Set([genDir]) };
+      for (const [k, v] of generated) p.anchor.set(k, { ...v, scheme: "anchor", tagLen: 8, args: [] });
+      anchorExtra.set(GENERATED_IDL_PROGRAM, p);
+    }
+    return makeNameResolver(byProgram, anchorExtra);
   }
   if (generated.size > 0) {
-    const p = { anchor: new Map(), tag: new Map(), sources: new Set([genDir]) };
+    const p = { anchor: new Map(), tag: new Map(), sources: new Set(["stored IDL"]) };
     for (const [k, v] of generated) p.anchor.set(k, { ...v, scheme: "anchor", tagLen: 8, args: [] });
     anchorExtra.set(GENERATED_IDL_PROGRAM, p);
   }
-
   return makeNameResolver(byProgram, anchorExtra);
 }
 

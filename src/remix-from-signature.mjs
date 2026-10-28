@@ -22,6 +22,12 @@ import {
 } from "./remix.mjs";
 import { decodeArgs, schemaForInstruction } from "./args.mjs";
 import { buildMultiResolver, defaultMultiIdlDir } from "./dispatch.mjs";
+import {
+  sememeAccountRoles,
+  sememeDecodeArgs,
+  sememeEmitterStatus,
+  sememeIdlTable,
+} from "./sememe-idl-source.mjs";
 
 const args = process.argv.slice(2);
 const signature = args.find((a) => !a.startsWith("--"));
@@ -35,11 +41,35 @@ function flag(name, fallback) {
 }
 
 const WHIRLPOOL_PROGRAM = "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc";
-// Resolve the Whirlpool-generated codec directory: an explicit --idl wins, then IDL_GEN_DIR
-// (the same env var verify-recipe.mjs reads), then a hard-coded sibling-repo path kept for
-// the author's local machine. A fresh clone has none of these by default; running with
-// the default then crashes with ENOENT, which reads as "the tool is broken on a fresh
-// machine". The error message below names IDL_GEN_DIR so the reader can recover.
+const programId = flag("--program", WHIRLPOOL_PROGRAM);
+
+// The stored on-chain IDL is the PRIMARY source for this emitter, and the generated codecs
+// are the fallback.
+//
+// The generated codecs are not in this repository: they live in a fork of Orca's ts-sdk,
+// which is why a fresh clone used to exit with "Whirlpool codec directory not found" before
+// it could name a single argument. The stored IDL is the deployed program's own interface,
+// pulled from the chain, and it is vendored — so the emitter can now run on a fresh clone.
+//
+// It is also BETTER, not merely available, and the difference is measurable:
+//
+//   - The stored IDL carries all 57 discriminators the generated directory carries, with
+//     identical names, and 9 more the generated directory does not have at all
+//     (`close_position_with_token_extensions`, `initialize_position_bundle_with_metadata`,
+//     `set_reward_authority_by_super_authority`, …). A transaction calling one of those
+//     instructions could not be named at all before.
+//   - Argument names come from the program itself. The generated path decoded
+//     `remaining_accounts_info` as `{"__optionRemaining":"AA=="}` — an opaque remainder it
+//     declined to interpret. The stored IDL decodes it as `{"__option":"None"}`, which is
+//     what the bytes say.
+//
+// The fallback is kept because the two are not equally authoritative in every respect: the
+// generated modules also describe the Borsh layouts the program was compiled from, and a
+// machine that has them can cross-check the stored IDL against them. The fallback is only
+// reached when the stored IDL is ABSENT. A store that is PRESENT and does not verify is a
+// defect: it is reported and the run stops, because silently falling back would put back
+// exactly the failure this migration removes — a recipe whose names came from a source
+// nobody checked.
 const idlDir = flag(
   "--idl",
   process.env.IDL_GEN_DIR ||
@@ -47,19 +77,39 @@ const idlDir = flag(
 );
 const outDir = flag("--out", path.resolve("out"));
 
-if (!fs.existsSync(idlDir)) {
-  console.error(`Whirlpool codec directory not found: ${idlDir}`);
-  console.error(`Set IDL_GEN_DIR to a directory of Codama-generated <NAME>_DISCRIMINATOR .ts files`);
-  console.error(`(e.g. a fork of orca-so/whirlpools ts-sdk/client/src/generated/instructions),`);
-  console.error(`or pass --idl <dir>. Multi-program recipes in out/remix-multi-* do not need this.`);
+const sememeState = await sememeEmitterStatus(programId);
+let idlMap = new Map();
+let idlSource = null;
+if (sememeState.usable) {
+  const { table, error } = await sememeIdlTable(programId);
+  if (!table.size) {
+    console.error(`stored sememe artifact for ${programId} yielded no instructions: ${error}`);
+    process.exit(2);
+  }
+  idlMap = table;
+  idlSource = `stored IDL ${sememeState.fingerprint}`;
+} else if (sememeState.reason === "broken") {
+  console.error(`stored sememe artifact for ${programId} is present but does not verify: ${sememeState.error}`);
+  console.error(`Refusing to fall back: a damaged artifact must not silently become another source's names.`);
   process.exit(2);
+} else {
+  // ABSENT: no sememe checkout or store on this machine. The generated codecs are the
+  // documented fallback, and the error below names both ways to get them.
+  if (!fs.existsSync(idlDir)) {
+    console.error(`No Whirlpool interface source available.`);
+    console.error(`  Stored on-chain IDL: ${sememeState.error}`);
+    console.error(`  Generated codecs    : ${idlDir} not found`);
+    console.error(`Set IDL_GEN_DIR to a directory of Codama-generated <NAME>_DISCRIMINATOR .ts files`);
+    console.error(`(e.g. a fork of orca-so/whirlpools ts-sdk/client/src/generated/instructions),`);
+    console.error(`or pass --idl <dir>. Multi-program recipes in out/remix-multi-* do not need this.`);
+    process.exit(2);
+  }
+  idlMap = loadIdlFromGenerated(idlDir);
+  if (idlMap.size === 0) throw new Error(`no instruction discriminators found in ${idlDir}`);
+  idlSource = `generated codecs ${idlDir}`;
 }
 
 const tx = await fetchTransaction(signature);
-const idlMap = loadIdlFromGenerated(idlDir);
-if (idlMap.size === 0) throw new Error(`no instruction discriminators found in ${idlDir}`);
-
-const programId = flag("--program", WHIRLPOOL_PROGRAM);
 const programName = programId === WHIRLPOOL_PROGRAM ? "whirlpool" : programId.slice(0, 8);
 // Native programs (ComputeBudget, System) are named too, not just the target program.
 // Without this the fee-budget and account-funding instructions came out as "(unknown)"
@@ -81,7 +131,7 @@ const programName = programId === WHIRLPOOL_PROGRAM ? "whirlpool" : programId.sl
 // idlMap fallback still handles the Anchor target directly.
 const nameFor = buildMultiResolver({
   multiIdlDir: defaultMultiIdlDir(),
-  genIdlDir: idlDir,
+  genIdlMap: idlMap,
 });
 const recipe = await buildRecipe(tx, idlMap, {
   programId,
@@ -116,6 +166,10 @@ const jsonPath = path.join(outDir, `${stem}.json`);
 /**
  * Read account role names straight from the generated codec's type parameters, so the
  * recipe says "WHIRLPOOL" instead of "account[4]".
+ *
+ * This is the FALLBACK path. When the stored on-chain IDL is available it supplies the
+ * roles instead — the program's own account list, which is its vocabulary rather than the
+ * generator's TypeScript type-parameter names.
  */
 function accountRoles(genDir, name) {
   if (!name) return [];
@@ -196,6 +250,7 @@ lines.push(` *`);
 lines.push(` * source signature : ${recipe.signature}`);
 lines.push(` * slot / blockTime : ${recipe.slot} / ${new Date(recipe.blockTime * 1000).toISOString()}`);
 lines.push(` * message version  : ${recipe.version}`);
+lines.push(` * interface source : ${idlSource}`);
 lines.push(` * fee payer        : ${recipe.feePayer}`);
 if (poolContext?.address) {
   lines.push(` * pool account     : ${poolContext.address}${poolContext.dataSize ? ` (${poolContext.dataSize} bytes, owner ${poolContext.owner})` : ""}`);
@@ -207,18 +262,29 @@ lines.push(` * verifies the encoded bytes still match the chain byte for byte.`)
 lines.push(` */`);
 lines.push(``);
 
-// ---- Parameters: named, editable fields decoded with the program's own generated codecs.
+// ---- Parameters: named, editable fields decoded from the program's own interface.
 lines.push(`// ------------------------------------------------------------- editable parameters`);
 for (const ix of recipe.instructions) {
   if (!ix.isTarget || !ix.name) continue;
-  const schema = schemaForInstruction(idlDir, ix.name);
-  const decoded = decodeArgs(schema, ix.args);
+  // The stored IDL decodes what the generated path could only refuse. The generated
+  // decoder stopped at `option`- and `defined`-typed arguments and emitted the raw
+  // remainder as `__optionRemaining`; the stored IDL resolves them, so
+  // `remaining_accounts_info` reads `{"__option":"None"}` — what the bytes actually say —
+  // instead of an opaque base64 blob. That is the whole point of moving the emitter onto
+  // the program's own interface: not the same names, but the same MEANING.
+  const viaStore = sememeState.usable
+    ? await sememeDecodeArgs(programId, Buffer.concat([Buffer.from(ix.discriminator, "hex"), ix.args]))
+    : { args: null, error: null };
+  const schema = sememeState.usable ? null : schemaForInstruction(idlDir, ix.name);
+  const decoded = viaStore.args
+    ? viaStore.args
+    : decodeArgs(schema, ix.args);
   lines.push(``);
   lines.push(`/** ix ${ix.index}: ${ix.name} — ${ix.accountCount} accounts */`);
   for (const [k, v] of Object.entries(decoded)) {
     if (k.startsWith("__")) continue;
     if (v !== null && typeof v === "object") {
-      lines.push(`export const IX${ix.index}_${ix.name}_${k.toUpperCase()} = ${JSON.stringify(v)}; // decoded as remaining-accounts metadata; verify byte-for-byte before editing`);
+      lines.push(`export const IX${ix.index}_${ix.name}_${k.toUpperCase()} = ${JSON.stringify(v)}; // decoded from the program's own IDL; verify byte-for-byte before editing`);
     } else if (typeof v === "boolean") {
       lines.push(`export const IX${ix.index}_${ix.name}_${k.toUpperCase()} = ${v};`);
     } else if (typeof v === "string" && /^\d+$/.test(v)) {
@@ -229,8 +295,10 @@ for (const ix of recipe.instructions) {
       lines.push(`export const IX${ix.index}_${ix.name}_${k.toUpperCase()} = ${JSON.stringify(v)};`);
     }
   }
-  // Account roles: resolve each static index to a real address, named from the IDL type.
-  const roles = accountRoles(idlDir, ix.name);
+  // Account roles: the program's own account list when the stored IDL is available, the
+  // generated module's type parameters otherwise.
+  const storedRoles = sememeState.usable ? (await sememeAccountRoles(programId, ix.name)).roles : [];
+  const roles = storedRoles.length ? storedRoles : accountRoles(idlDir, ix.name);
   ix.accounts.forEach((a, n) => {
     const addr = (ix.accountAddresses?.[n] ?? recipe.accountKeys[a] ?? `UNRESOLVED[${a}]`);
     const role = roles[n] ? roles[n].toUpperCase() : `ACCOUNT_${n}`;
@@ -343,6 +411,7 @@ console.log(`signature   : ${recipe.signature}`);
 console.log(`slot/time   : ${recipe.slot} / ${new Date(recipe.blockTime * 1000).toISOString()}`);
 console.log(`version     : ${recipe.version}, ${recipe.accountKeys.length} static accounts`);
 console.log(`instructions: ${recipe.instructions.length} total, ${targetIxs} on ${recipe.programName}`);
+console.log(`interface  : ${idlSource}`);
 console.log(`decoded     : ${named}/${recipe.instructions.length} recognized from IDL discriminators`);
 if (innerAll.length) {
   console.log(`inner       : ${innerAll.length} CPI instructions, ${innerTarget} on ${recipe.programName}`);
