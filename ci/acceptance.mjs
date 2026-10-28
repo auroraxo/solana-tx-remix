@@ -2,7 +2,7 @@
 /**
  * ci/acceptance.mjs — the CI verdict for Transaction Remix.
  *
- * The README claims five things. This script is the executable form of exactly those
+ * The README claims six things. This script is the executable form of exactly those
  * claims, and nothing else:
  *
  *   1. Every shipped IDL file in idl/multi actually binds something.
@@ -33,7 +33,12 @@
  *      The source recipe is therefore run first in the same environment, and its failures
  *      are the baseline the control must exceed.
  *
- *   5. A stored artifact that does not verify is reported, not silently dropped. The
+ *   5. Two claims a recipe makes about its own transaction are re-derived from the chain
+ *      inside src/verify-recipe.mjs, so they apply to out/ and to neg/ alike: the
+ *      instruction name the bytes actually carry, and the message version the fields
+ *      actually describe.
+ *
+ *   6. A stored artifact that does not verify is reported, not silently dropped. The
  *      verifier once found that the object did not re-hash to its receipt, declined to
  *      use it, and then passed on the strength of the other decoder alone — a green run
  *      over a tampered artifact. The tampering is now performed deliberately here.

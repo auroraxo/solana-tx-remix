@@ -29,7 +29,7 @@ No private key, no wallet, no signing is involved at any point.
 ## Continuous integration
 
 `node ci/acceptance.mjs` is the whole verdict, and GitHub Actions runs it on every push
-(`.github/workflows/acceptance.yml`). It asserts five things, each of which can fail:
+(`.github/workflows/acceptance.yml`). It asserts six things, each of which can fail:
 
 1. **Every shipped IDL in `idl/multi/` binds a program** — the loader reports any file it
    cannot use, rather than dropping it silently. This is the check that was missing when
@@ -60,6 +60,16 @@ No private key, no wallet, no signing is involved at any point.
      called every v1 message and every v0-with-empty-lookup-array message `legacy`.
      `neg/wrong-version` is that mislabelling. The instruction bytes are identical
      whichever name is used, which is why byte-identity never saw it.
+6. **A stored artifact that does not verify is reported, not silently dropped.** The
+   verifier once found that the stored object did not re-hash to its receipt, declined to
+   use it, and then passed on the strength of the other decoder alone — a green run over a
+   tampered artifact, which is the exact failure mode this repository exists to catch. So
+   the tampering is now performed deliberately: the script copies the intact store to a
+   temp directory, edits one argument type so the object still parses as valid JSON with
+   instructions (the parser would catch a malformed edit and prove nothing about the
+   digest), and requires the flagship recipe to fail with "does not verify". Re-disabling
+   the fix makes this check fail loudly; a machine with no intact store to tamper with
+   reports `SKIP` rather than a finding.
 
 The same script runs in CI and by hand, so a green badge and a local run are the same
 claim. The `no control may go unjudged` step fails the build if the control table and the
