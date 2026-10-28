@@ -61,9 +61,6 @@ import { sememeStatus, WHIRLPOOL_PROGRAM } from "../src/sememe-idl.mjs";
 // unchanged) from "the migration stopped working" (a finding).
 const sememeState = await sememeStatus(WHIRLPOOL_PROGRAM);
 const sememeUsable = sememeState.usable;
-note(sememeUsable
-  ? `sememe store : reachable — ${sememeState.fingerprint}`
-  : `sememe store : not usable (${sememeState.reason}) — ${sememeState.error}`);
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const MULTI_IDL = path.join(ROOT, "idl", "multi");
@@ -80,6 +77,12 @@ const FETCH_ATTEMPTS = 3;
 
 const red = [];
 const note = (line) => console.log(line);
+
+// Which decoder state this run is in, printed once so a SKIP and a PASS can be compared
+// from the same log.
+note(sememeUsable
+  ? `sememe store : reachable — ${sememeState.fingerprint}`
+  : `sememe store : not usable (${sememeState.reason}) — ${sememeState.error}`);
 const flag = (line) => (red.push(line), console.log(`RED: ${line}`));
 
 function run(cmd, argv, opts = {}) {
