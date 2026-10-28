@@ -2,7 +2,7 @@
 /**
  * ci/acceptance.mjs — the CI verdict for Transaction Remix.
  *
- * The README claims three things. This script is the executable form of exactly those
+ * The README claims five things. This script is the executable form of exactly those
  * claims, and nothing else:
  *
  *   1. Every shipped IDL file in idl/multi actually binds something.
@@ -33,6 +33,11 @@
  *      The source recipe is therefore run first in the same environment, and its failures
  *      are the baseline the control must exceed.
  *
+ *   5. A stored artifact that does not verify is reported, not silently dropped. The
+ *      verifier once found that the object did not re-hash to its receipt, declined to
+ *      use it, and then passed on the strength of the other decoder alone — a green run
+ *      over a tampered artifact. The tampering is now performed deliberately here.
+ *
  * Run from the repository root:  node ci/acceptance.mjs
  *
  * Environment: no IDL_GEN_DIR, so no Whirlpool-generated codecs are present. That is the
@@ -51,6 +56,7 @@
  */
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { unusableIdlFiles } from "../src/idl-bitquery.mjs";
@@ -211,6 +217,55 @@ for (const { from, to } of controls) {
     continue;
   }
   note(`FAIL-AS-DECLARED  neg/${to}  (+${attributable.length} beyond baseline: ${attributable[0].trim()})`);
+}
+
+// 5. A tampered store must be reported, never silently fallen back from. This is the
+// regression control for a real defect: the verifier used to detect that the stored object
+// did not re-hash to its receipt, decline to use it, and then carry on with the other
+// decoder — printing PASS. "The check found the damage and the run went green anyway" is
+// the exact failure mode this repository exists to catch, so the tampering is now performed
+// deliberately, in CI, on every push.
+note("\n== 5. a tampered stored artifact is a failure, not a fallback ==");
+if (!sememeUsable) {
+  // No intact store to tamper with. Same rule as above: absence is a documented state, not
+  // a finding — the control simply cannot run here.
+  note(`SKIP  no intact store to tamper (sememe ${sememeState.reason}: ${sememeState.error})`);
+} else {
+  const tampered = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "remix-tamper-")), "store");
+  fs.cpSync(path.dirname(sememeState.object), path.join(tampered, "objects"), { recursive: true });
+  fs.cpSync(path.join(path.dirname(sememeState.object), "..", "receipts"), path.join(tampered, "receipts"), {
+    recursive: true,
+  });
+  // Valid JSON, different bytes: the object still parses and still has instructions, so
+  // the only thing that can catch this is the fingerprint re-check. Cosmetic tampering
+  // would otherwise be caught by the parser and would prove nothing about the digest.
+  const objectPath = path.join(tampered, "objects", path.basename(sememeState.object));
+  const idl = JSON.parse(fs.readFileSync(objectPath, "utf8"));
+  const target = idl.instructions.find((i) => Array.isArray(i.args) && i.args.length > 0);
+  if (!target) {
+    note("SKIP  stored IDL has no instruction with args to tamper with");
+  } else {
+    target.args[0].type = "tampered";
+    fs.writeFileSync(objectPath, JSON.stringify(idl));
+    const res = run("node", [VERIFY, "out/remix-6754RLWd.ts"], {
+      env: { ...process.env, SEMEME_STORE: tampered },
+    });
+    const reported = /does not verify/.test(res.out);
+    if (res.status === 0) {
+      flag(
+        "a tampered sememe store object was accepted: verify-recipe.mjs exited 0. " +
+          "The verifier detected the damage and fell back — this is the defect 5f31e7a fixed.",
+      );
+    } else if (!reported) {
+      flag(
+        `a tampered sememe store object failed verification but was not reported as such ` +
+          `(expected "does not verify" in the output):\n      ${res.out.trim().split("\n").slice(0, 3).join("\n      ")}`,
+      );
+    } else {
+      note("FAIL-AS-DECLARED  tampered store object — reported, not fallen back from");
+    }
+    fs.rmSync(path.dirname(tampered), { recursive: true, force: true });
+  }
 }
 
 // Verdict.
