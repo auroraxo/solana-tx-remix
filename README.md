@@ -24,6 +24,11 @@ of the public `api.mainnet-beta.solana.com`.
     node src/verify-recipe.mjs out/<recipe>.ts
     node src/make-negatives.mjs   # regenerate the negative controls from out/
 
+The single-program emitter reads the Whirlpool interface from `idl/sememe-store/` in this
+repo, so it needs no extra setup. It does need the `auroraxo/sememe` checkout on the
+machine for the decoder itself (`SEMEME_DIR`, or a sibling `~/github_repos/sememe`); with
+that absent it falls back to Codama-generated codecs via `--idl`/`IDL_GEN_DIR`.
+
 No private key, no wallet, no signing is involved at any point.
 
 ## Continuous integration
@@ -85,10 +90,14 @@ key and the `0x81` byte in the transaction itself — and the script prints thei
 disagreements rather than only the number they happen to agree on.
 
 `remix-from-signature.mjs` targets one program (Whirlpool) and names its fields from the
-program's generated codecs. It needs those codecs on disk — they are not shipped here —
-via `--idl <dir>` or `IDL_GEN_DIR`; without them it exits with a message naming the
-variable rather than failing mid-run. (Verification does **not** need them: see "What the
-stored IDL changes" below.) `remix-multi.mjs` is the common Solana case — an
+program's own on-chain IDL, pulled by `auroraxo/sememe` and stored in `idl/sememe-store/`
+in this repo. It runs on a fresh clone with no extra setup — the emitted recipe says which
+source it used in its header. If that store is absent (a clone without the checkout, or a
+machine without `SEMEME_DIR`), it falls back to Codama-generated codecs via `--idl <dir>`
+or `IDL_GEN_DIR`, and if neither source exists it exits with a message naming both rather
+than failing mid-run. A store that is present but does **not** verify is a hard stop, not
+a fallback: see "What the stored IDL changes" below. `remix-multi.mjs` is the common
+Solana case — an
 aggregator reaching a swap through several programs — and dispatches each instruction
 (top-level and CPI) against the directory of per-program IDLs **shipped in `idl/multi/`**
 in this repo, so it works on a fresh clone with no extra setup.
@@ -272,7 +281,10 @@ away from the parse itself.
 ## Known limits (measured, not guessed)
 
 - Instruction names and argument layouts come from a supplied IDL directory, plus a pinned
-  table for the native Solana programs (`src/native.mjs`). Without a source, bytes still
+  table for the native Solana programs (`src/native.mjs`). The single-program Whirlpool
+  path now prefers the vendored stored on-chain IDL and needs no directory at all; the
+  generated codecs remain as the documented fallback when that store is absent. Without a
+  source, bytes still
   round-trip but names stay `null` — the tool reports `0/N decoded` rather than inventing
   labels. On `3yB9Q1pq…` the multi-program path names 9 of 10: 4 top-level (ComputeBudget
   `SetComputeUnitLimit`, `SetComputeUnitPrice`, `RequestHeapFrame`, System `Transfer`) and
@@ -353,20 +365,34 @@ away from the parse itself.
   the chain and stores it by SHA-256 of its canonical JSON.
 
 No Whirlpool-generated codecs are vendored here. The Orca repository relicensed in
-February 2025, so the single-program path asks you to point `IDL_GEN_DIR` at codecs you
-generated yourself rather than shipping someone else's. The stored on-chain IDL is a
-different thing and IS vendored: it is the deployed program's own interface, pulled from
-the chain, and it is re-verified against its own bytes before every use.
+February 2025, so those remain an optional cross-check you point `IDL_GEN_DIR` at rather
+than something to ship. The stored on-chain IDL is a different thing and IS vendored: it
+is the deployed program's own interface, pulled from the chain, and it is re-verified
+against its own bytes before every use.
 
 ## What the stored IDL changes
 
 `src/sememe-idl.mjs` decodes single-program Whirlpool arguments from the stored on-chain
-IDL instead of from generated codecs. Three things follow, and all three are measured
-rather than asserted:
+IDL instead of from generated codecs, and `src/sememe-idl-source.mjs` gives the EMITTER
+the same source. Four things follow, and all four are measured rather than asserted:
 
 - **The flagship recipe verifies on a fresh clone.** `out/remix-6754RLWd.ts` was `SKIP` in
   CI for want of the Orca codecs; it now passes, with 7 Whirlpool instructions decoded and
   14 CPIs verified.
+- **The tool can produce one too, not just check one.** The emitter used to exit with
+  "Whirlpool codec directory not found" on a fresh clone, before naming a single
+  argument. It now runs on the stored IDL alone. Re-emitting the flagship changed the
+  description, not the transaction: `ACCOUNTS`, `LOOKUP_TABLE_ADDRESSES`,
+  `INSTRUCTION_BYTES` and `INNER_BYTES` are byte-identical to the previous recipe, and
+  the `.json` is unchanged.
+- **The names are the program's own.** The stored IDL carries all 57 discriminators the
+  generated directory carries, with identical names, and **9 it does not have at all**
+  (`close_position_with_token_extensions`, `initialize_position_bundle_with_metadata`,
+  `set_reward_authority_by_super_authority`, …) — instructions the old path could not
+  name even with the codecs on disk. Argument and account-role names come from the
+  program: `IX6_SWAP_V2_SQRT_PRICE_LIMIT` instead of `IX6_SWAP_V2_SQRTPRICELIMIT`, and
+  `remaining_accounts_info` reads `{"__option":"None"}` instead of the raw
+  `{"__optionRemaining":"AA=="}` the generated path declined to interpret.
 - **The bytes name themselves.** The old verifier looked the argument layout up *by* the
   recipe's label, so a false label found a false layout and decoded it. The stored IDL is
   keyed the other way: the discriminator names its own instruction, and the name must
@@ -385,7 +411,10 @@ The artifact is verified, not trusted: `sha256(canonicalJson(idl) + '\n')` must 
 receipt's fingerprint, re-checked before every decode. A store that is present and does
 not verify is a **failure**, not a fallback — a tampered artifact is caught and reported
 rather than skipped over, because "the check found the damage and the run went green
-anyway" is the exact failure mode this repository exists to catch.
+anyway" is the exact failure mode this repository exists to catch. The emitter keeps the
+same distinction: an absent store falls back to the generated codecs (or exits naming
+both sources when neither exists), while a store that is present and damaged exits 2
+rather than quietly becoming another source's names.
 
 The decoder itself comes from the `auroraxo/sememe` checkout (`SEMEME_DIR`, or a sibling
 `~/github_repos/sememe`). It is imported directly, not vendored, so the two sides cannot
