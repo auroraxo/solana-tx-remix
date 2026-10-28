@@ -4,6 +4,7 @@
  * source signature : 6754RLWddRPsWvTV2eR6Bao9UA6jYi9FACKWtbdNWaYUsHZjskrjwko7caLrvWjZozpgg9YFVsmafktf6ebKrYT6
  * slot / blockTime : 459384503 / 2026-10-20T21:47:09.000Z
  * message version  : v0
+ * interface source : stored IDL sha256:0b886e375b112206a846a061f076f7db02a4b01b25cd593cd03caa490d86660f
  * fee payer        : 2sJWNe9HM3A8tDd5Q7NuCvLbhMdTeqzDhKqV4Pv9Td1p
  * pool account     : CsftscgBmHuxc21r1FUCRXDFhfdzFJQTXTXSPwnGcZAa (653 bytes, owner whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc)
  *
@@ -15,149 +16,149 @@
 // ------------------------------------------------------------- editable parameters
 
 /** ix 2: DECREASE_LIQUIDITY_V2 — 15 accounts */
-export const IX2_DECREASE_LIQUIDITY_V2_LIQUIDITYAMOUNT = 2152817907718n; // liquidityAmount
-export const IX2_DECREASE_LIQUIDITY_V2_TOKENMINA = 0n; // tokenMinA
-export const IX2_DECREASE_LIQUIDITY_V2_TOKENMINB = 0n; // tokenMinB
-export const IX2_DECREASE_LIQUIDITY_V2_REMAININGACCOUNTSINFO = {"__optionRemaining":"AA=="}; // decoded as remaining-accounts metadata; verify byte-for-byte before editing
+export const IX2_DECREASE_LIQUIDITY_V2_LIQUIDITY_AMOUNT = 2152817907718n; // liquidity_amount
+export const IX2_DECREASE_LIQUIDITY_V2_TOKEN_MIN_A = 0n; // token_min_a
+export const IX2_DECREASE_LIQUIDITY_V2_TOKEN_MIN_B = 0n; // token_min_b
+export const IX2_DECREASE_LIQUIDITY_V2_REMAINING_ACCOUNTS_INFO = {"__option":"None"}; // decoded from the program's own IDL; verify byte-for-byte before editing
 export const IX2_WHIRLPOOL                    = "CsftscgBmHuxc21r1FUCRXDFhfdzFJQTXTXSPwnGcZAa"; // [0] w
-export const IX2_TOKENPROGRAMA                = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"; // [1] r
-export const IX2_TOKENPROGRAMB                = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"; // [2] r
-export const IX2_MEMOPROGRAM                  = "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr"; // [3] r
-export const IX2_POSITIONAUTHORITY            = "2sJWNe9HM3A8tDd5Q7NuCvLbhMdTeqzDhKqV4Pv9Td1p"; // [4] w
+export const IX2_TOKEN_PROGRAM_A              = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"; // [1] r
+export const IX2_TOKEN_PROGRAM_B              = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"; // [2] r
+export const IX2_MEMO_PROGRAM                 = "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr"; // [3] r
+export const IX2_POSITION_AUTHORITY           = "2sJWNe9HM3A8tDd5Q7NuCvLbhMdTeqzDhKqV4Pv9Td1p"; // [4] w
 export const IX2_POSITION                     = "DF8D4ffCf1sgSG3BUdFGjHo13subcgiJXX4sPndLmtzn"; // [5] w
-export const IX2_POSITIONTOKENACCOUNT         = "BexkSwE2NA3mfj1Ze3iauGyy2Zw4XF58DdB6mcKQDPKP"; // [6] r
-export const IX2_TOKENMINTA                   = "So11111111111111111111111111111111111111112"; // [7] r
-export const IX2_TOKENMINTB                   = "D42TjMjz5H7toPu5md5KBXreZkCSdZMEfLQwmBhJXvb1"; // [8] r
-export const IX2_TOKENOWNERACCOUNTA           = "NkWwsEcDcBd8oL1XYUnYdbYGxzc2K3KyYHdFvUMRYAd"; // [9] w
-export const IX2_TOKENOWNERACCOUNTB           = "YJbdN1mUHKvQGcCUK6t8ndUmZ3YPeaerUyhjEKzE5NV"; // [10] w
-export const IX2_TOKENVAULTA                  = "FLqsiZSZpAoiuUVubAgueMEoDtKfkot32wcnEYLhobiU"; // [11] w
-export const IX2_TOKENVAULTB                  = "E8yvEJPx1WgqDepWN7Luh2qreAvNepaZmGqKcim9L8hw"; // [12] w
-export const IX2_TICKARRAYLOWER               = "HNaqSemzSgL5jWDkqBik6X4syyqVknt3CQg9XXFJu7Xw"; // [13] w
-export const IX2_TICKARRAYUPPER               = "HNaqSemzSgL5jWDkqBik6X4syyqVknt3CQg9XXFJu7Xw"; // [14] w
+export const IX2_POSITION_TOKEN_ACCOUNT       = "BexkSwE2NA3mfj1Ze3iauGyy2Zw4XF58DdB6mcKQDPKP"; // [6] r
+export const IX2_TOKEN_MINT_A                 = "So11111111111111111111111111111111111111112"; // [7] r
+export const IX2_TOKEN_MINT_B                 = "D42TjMjz5H7toPu5md5KBXreZkCSdZMEfLQwmBhJXvb1"; // [8] r
+export const IX2_TOKEN_OWNER_ACCOUNT_A        = "NkWwsEcDcBd8oL1XYUnYdbYGxzc2K3KyYHdFvUMRYAd"; // [9] w
+export const IX2_TOKEN_OWNER_ACCOUNT_B        = "YJbdN1mUHKvQGcCUK6t8ndUmZ3YPeaerUyhjEKzE5NV"; // [10] w
+export const IX2_TOKEN_VAULT_A                = "FLqsiZSZpAoiuUVubAgueMEoDtKfkot32wcnEYLhobiU"; // [11] w
+export const IX2_TOKEN_VAULT_B                = "E8yvEJPx1WgqDepWN7Luh2qreAvNepaZmGqKcim9L8hw"; // [12] w
+export const IX2_TICK_ARRAY_LOWER             = "HNaqSemzSgL5jWDkqBik6X4syyqVknt3CQg9XXFJu7Xw"; // [13] w
+export const IX2_TICK_ARRAY_UPPER             = "HNaqSemzSgL5jWDkqBik6X4syyqVknt3CQg9XXFJu7Xw"; // [14] w
 export const IX2_PROGRAM = "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc";
 
 /** ix 3: COLLECT_FEES_V2 — 13 accounts */
-export const IX3_COLLECT_FEES_V2_REMAININGACCOUNTSINFO = {"__optionRemaining":"AA=="}; // decoded as remaining-accounts metadata; verify byte-for-byte before editing
+export const IX3_COLLECT_FEES_V2_REMAINING_ACCOUNTS_INFO = {"__option":"None"}; // decoded from the program's own IDL; verify byte-for-byte before editing
 export const IX3_WHIRLPOOL                    = "CsftscgBmHuxc21r1FUCRXDFhfdzFJQTXTXSPwnGcZAa"; // [0] w
-export const IX3_POSITIONAUTHORITY            = "2sJWNe9HM3A8tDd5Q7NuCvLbhMdTeqzDhKqV4Pv9Td1p"; // [1] w
+export const IX3_POSITION_AUTHORITY           = "2sJWNe9HM3A8tDd5Q7NuCvLbhMdTeqzDhKqV4Pv9Td1p"; // [1] w
 export const IX3_POSITION                     = "DF8D4ffCf1sgSG3BUdFGjHo13subcgiJXX4sPndLmtzn"; // [2] w
-export const IX3_POSITIONTOKENACCOUNT         = "BexkSwE2NA3mfj1Ze3iauGyy2Zw4XF58DdB6mcKQDPKP"; // [3] r
-export const IX3_TOKENMINTA                   = "So11111111111111111111111111111111111111112"; // [4] r
-export const IX3_TOKENMINTB                   = "D42TjMjz5H7toPu5md5KBXreZkCSdZMEfLQwmBhJXvb1"; // [5] r
-export const IX3_TOKENOWNERACCOUNTA           = "NkWwsEcDcBd8oL1XYUnYdbYGxzc2K3KyYHdFvUMRYAd"; // [6] w
-export const IX3_TOKENVAULTA                  = "FLqsiZSZpAoiuUVubAgueMEoDtKfkot32wcnEYLhobiU"; // [7] w
-export const IX3_TOKENOWNERACCOUNTB           = "YJbdN1mUHKvQGcCUK6t8ndUmZ3YPeaerUyhjEKzE5NV"; // [8] w
-export const IX3_TOKENVAULTB                  = "E8yvEJPx1WgqDepWN7Luh2qreAvNepaZmGqKcim9L8hw"; // [9] w
-export const IX3_TOKENPROGRAMA                = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"; // [10] r
-export const IX3_TOKENPROGRAMB                = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"; // [11] r
-export const IX3_MEMOPROGRAM                  = "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr"; // [12] r
+export const IX3_POSITION_TOKEN_ACCOUNT       = "BexkSwE2NA3mfj1Ze3iauGyy2Zw4XF58DdB6mcKQDPKP"; // [3] r
+export const IX3_TOKEN_MINT_A                 = "So11111111111111111111111111111111111111112"; // [4] r
+export const IX3_TOKEN_MINT_B                 = "D42TjMjz5H7toPu5md5KBXreZkCSdZMEfLQwmBhJXvb1"; // [5] r
+export const IX3_TOKEN_OWNER_ACCOUNT_A        = "NkWwsEcDcBd8oL1XYUnYdbYGxzc2K3KyYHdFvUMRYAd"; // [6] w
+export const IX3_TOKEN_VAULT_A                = "FLqsiZSZpAoiuUVubAgueMEoDtKfkot32wcnEYLhobiU"; // [7] w
+export const IX3_TOKEN_OWNER_ACCOUNT_B        = "YJbdN1mUHKvQGcCUK6t8ndUmZ3YPeaerUyhjEKzE5NV"; // [8] w
+export const IX3_TOKEN_VAULT_B                = "E8yvEJPx1WgqDepWN7Luh2qreAvNepaZmGqKcim9L8hw"; // [9] w
+export const IX3_TOKEN_PROGRAM_A              = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"; // [10] r
+export const IX3_TOKEN_PROGRAM_B              = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"; // [11] r
+export const IX3_MEMO_PROGRAM                 = "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr"; // [12] r
 export const IX3_PROGRAM = "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc";
 
 /** ix 4: DECREASE_LIQUIDITY_V2 — 15 accounts */
-export const IX4_DECREASE_LIQUIDITY_V2_LIQUIDITYAMOUNT = 8490158166249n; // liquidityAmount
-export const IX4_DECREASE_LIQUIDITY_V2_TOKENMINA = 0n; // tokenMinA
-export const IX4_DECREASE_LIQUIDITY_V2_TOKENMINB = 0n; // tokenMinB
-export const IX4_DECREASE_LIQUIDITY_V2_REMAININGACCOUNTSINFO = {"__optionRemaining":"AA=="}; // decoded as remaining-accounts metadata; verify byte-for-byte before editing
+export const IX4_DECREASE_LIQUIDITY_V2_LIQUIDITY_AMOUNT = 8490158166249n; // liquidity_amount
+export const IX4_DECREASE_LIQUIDITY_V2_TOKEN_MIN_A = 0n; // token_min_a
+export const IX4_DECREASE_LIQUIDITY_V2_TOKEN_MIN_B = 0n; // token_min_b
+export const IX4_DECREASE_LIQUIDITY_V2_REMAINING_ACCOUNTS_INFO = {"__option":"None"}; // decoded from the program's own IDL; verify byte-for-byte before editing
 export const IX4_WHIRLPOOL                    = "CsftscgBmHuxc21r1FUCRXDFhfdzFJQTXTXSPwnGcZAa"; // [0] w
-export const IX4_TOKENPROGRAMA                = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"; // [1] r
-export const IX4_TOKENPROGRAMB                = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"; // [2] r
-export const IX4_MEMOPROGRAM                  = "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr"; // [3] r
-export const IX4_POSITIONAUTHORITY            = "2sJWNe9HM3A8tDd5Q7NuCvLbhMdTeqzDhKqV4Pv9Td1p"; // [4] w
+export const IX4_TOKEN_PROGRAM_A              = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"; // [1] r
+export const IX4_TOKEN_PROGRAM_B              = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"; // [2] r
+export const IX4_MEMO_PROGRAM                 = "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr"; // [3] r
+export const IX4_POSITION_AUTHORITY           = "2sJWNe9HM3A8tDd5Q7NuCvLbhMdTeqzDhKqV4Pv9Td1p"; // [4] w
 export const IX4_POSITION                     = "T2HhqNDg6RcHfTQicUx4kAqic7Py9sekFC8sixquJEf"; // [5] w
-export const IX4_POSITIONTOKENACCOUNT         = "5tzySv6M5tJeFKuysvw8ENei3LkH23tX634fsYXn5vZ6"; // [6] r
-export const IX4_TOKENMINTA                   = "So11111111111111111111111111111111111111112"; // [7] r
-export const IX4_TOKENMINTB                   = "D42TjMjz5H7toPu5md5KBXreZkCSdZMEfLQwmBhJXvb1"; // [8] r
-export const IX4_TOKENOWNERACCOUNTA           = "NkWwsEcDcBd8oL1XYUnYdbYGxzc2K3KyYHdFvUMRYAd"; // [9] w
-export const IX4_TOKENOWNERACCOUNTB           = "YJbdN1mUHKvQGcCUK6t8ndUmZ3YPeaerUyhjEKzE5NV"; // [10] w
-export const IX4_TOKENVAULTA                  = "FLqsiZSZpAoiuUVubAgueMEoDtKfkot32wcnEYLhobiU"; // [11] w
-export const IX4_TOKENVAULTB                  = "E8yvEJPx1WgqDepWN7Luh2qreAvNepaZmGqKcim9L8hw"; // [12] w
-export const IX4_TICKARRAYLOWER               = "HNaqSemzSgL5jWDkqBik6X4syyqVknt3CQg9XXFJu7Xw"; // [13] w
-export const IX4_TICKARRAYUPPER               = "HNaqSemzSgL5jWDkqBik6X4syyqVknt3CQg9XXFJu7Xw"; // [14] w
+export const IX4_POSITION_TOKEN_ACCOUNT       = "5tzySv6M5tJeFKuysvw8ENei3LkH23tX634fsYXn5vZ6"; // [6] r
+export const IX4_TOKEN_MINT_A                 = "So11111111111111111111111111111111111111112"; // [7] r
+export const IX4_TOKEN_MINT_B                 = "D42TjMjz5H7toPu5md5KBXreZkCSdZMEfLQwmBhJXvb1"; // [8] r
+export const IX4_TOKEN_OWNER_ACCOUNT_A        = "NkWwsEcDcBd8oL1XYUnYdbYGxzc2K3KyYHdFvUMRYAd"; // [9] w
+export const IX4_TOKEN_OWNER_ACCOUNT_B        = "YJbdN1mUHKvQGcCUK6t8ndUmZ3YPeaerUyhjEKzE5NV"; // [10] w
+export const IX4_TOKEN_VAULT_A                = "FLqsiZSZpAoiuUVubAgueMEoDtKfkot32wcnEYLhobiU"; // [11] w
+export const IX4_TOKEN_VAULT_B                = "E8yvEJPx1WgqDepWN7Luh2qreAvNepaZmGqKcim9L8hw"; // [12] w
+export const IX4_TICK_ARRAY_LOWER             = "HNaqSemzSgL5jWDkqBik6X4syyqVknt3CQg9XXFJu7Xw"; // [13] w
+export const IX4_TICK_ARRAY_UPPER             = "HNaqSemzSgL5jWDkqBik6X4syyqVknt3CQg9XXFJu7Xw"; // [14] w
 export const IX4_PROGRAM = "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc";
 
 /** ix 5: COLLECT_FEES_V2 — 13 accounts */
-export const IX5_COLLECT_FEES_V2_REMAININGACCOUNTSINFO = {"__optionRemaining":"AA=="}; // decoded as remaining-accounts metadata; verify byte-for-byte before editing
+export const IX5_COLLECT_FEES_V2_REMAINING_ACCOUNTS_INFO = {"__option":"None"}; // decoded from the program's own IDL; verify byte-for-byte before editing
 export const IX5_WHIRLPOOL                    = "CsftscgBmHuxc21r1FUCRXDFhfdzFJQTXTXSPwnGcZAa"; // [0] w
-export const IX5_POSITIONAUTHORITY            = "2sJWNe9HM3A8tDd5Q7NuCvLbhMdTeqzDhKqV4Pv9Td1p"; // [1] w
+export const IX5_POSITION_AUTHORITY           = "2sJWNe9HM3A8tDd5Q7NuCvLbhMdTeqzDhKqV4Pv9Td1p"; // [1] w
 export const IX5_POSITION                     = "T2HhqNDg6RcHfTQicUx4kAqic7Py9sekFC8sixquJEf"; // [2] w
-export const IX5_POSITIONTOKENACCOUNT         = "5tzySv6M5tJeFKuysvw8ENei3LkH23tX634fsYXn5vZ6"; // [3] r
-export const IX5_TOKENMINTA                   = "So11111111111111111111111111111111111111112"; // [4] r
-export const IX5_TOKENMINTB                   = "D42TjMjz5H7toPu5md5KBXreZkCSdZMEfLQwmBhJXvb1"; // [5] r
-export const IX5_TOKENOWNERACCOUNTA           = "NkWwsEcDcBd8oL1XYUnYdbYGxzc2K3KyYHdFvUMRYAd"; // [6] w
-export const IX5_TOKENVAULTA                  = "FLqsiZSZpAoiuUVubAgueMEoDtKfkot32wcnEYLhobiU"; // [7] w
-export const IX5_TOKENOWNERACCOUNTB           = "YJbdN1mUHKvQGcCUK6t8ndUmZ3YPeaerUyhjEKzE5NV"; // [8] w
-export const IX5_TOKENVAULTB                  = "E8yvEJPx1WgqDepWN7Luh2qreAvNepaZmGqKcim9L8hw"; // [9] w
-export const IX5_TOKENPROGRAMA                = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"; // [10] r
-export const IX5_TOKENPROGRAMB                = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"; // [11] r
-export const IX5_MEMOPROGRAM                  = "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr"; // [12] r
+export const IX5_POSITION_TOKEN_ACCOUNT       = "5tzySv6M5tJeFKuysvw8ENei3LkH23tX634fsYXn5vZ6"; // [3] r
+export const IX5_TOKEN_MINT_A                 = "So11111111111111111111111111111111111111112"; // [4] r
+export const IX5_TOKEN_MINT_B                 = "D42TjMjz5H7toPu5md5KBXreZkCSdZMEfLQwmBhJXvb1"; // [5] r
+export const IX5_TOKEN_OWNER_ACCOUNT_A        = "NkWwsEcDcBd8oL1XYUnYdbYGxzc2K3KyYHdFvUMRYAd"; // [6] w
+export const IX5_TOKEN_VAULT_A                = "FLqsiZSZpAoiuUVubAgueMEoDtKfkot32wcnEYLhobiU"; // [7] w
+export const IX5_TOKEN_OWNER_ACCOUNT_B        = "YJbdN1mUHKvQGcCUK6t8ndUmZ3YPeaerUyhjEKzE5NV"; // [8] w
+export const IX5_TOKEN_VAULT_B                = "E8yvEJPx1WgqDepWN7Luh2qreAvNepaZmGqKcim9L8hw"; // [9] w
+export const IX5_TOKEN_PROGRAM_A              = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"; // [10] r
+export const IX5_TOKEN_PROGRAM_B              = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"; // [11] r
+export const IX5_MEMO_PROGRAM                 = "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr"; // [12] r
 export const IX5_PROGRAM = "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc";
 
 /** ix 6: SWAP_V2 — 15 accounts */
 export const IX6_SWAP_V2_AMOUNT = 1n; // amount
-export const IX6_SWAP_V2_OTHERAMOUNTTHRESHOLD = 0n; // otherAmountThreshold
-export const IX6_SWAP_V2_SQRTPRICELIMIT = 133001992603523192326n; // sqrtPriceLimit
-export const IX6_SWAP_V2_AMOUNTSPECIFIEDISINPUT = true;
-export const IX6_SWAP_V2_ATOB = true;
-export const IX6_SWAP_V2_REMAININGACCOUNTSINFO = {"__optionRemaining":"AA=="}; // decoded as remaining-accounts metadata; verify byte-for-byte before editing
-export const IX6_TOKENPROGRAMA                = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"; // [0] r
-export const IX6_TOKENPROGRAMB                = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"; // [1] r
-export const IX6_MEMOPROGRAM                  = "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr"; // [2] r
-export const IX6_TOKENAUTHORITY               = "2sJWNe9HM3A8tDd5Q7NuCvLbhMdTeqzDhKqV4Pv9Td1p"; // [3] w
+export const IX6_SWAP_V2_OTHER_AMOUNT_THRESHOLD = 0n; // other_amount_threshold
+export const IX6_SWAP_V2_SQRT_PRICE_LIMIT = 133001992603523192326n; // sqrt_price_limit
+export const IX6_SWAP_V2_AMOUNT_SPECIFIED_IS_INPUT = true;
+export const IX6_SWAP_V2_A_TO_B = true;
+export const IX6_SWAP_V2_REMAINING_ACCOUNTS_INFO = {"__option":"None"}; // decoded from the program's own IDL; verify byte-for-byte before editing
+export const IX6_TOKEN_PROGRAM_A              = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"; // [0] r
+export const IX6_TOKEN_PROGRAM_B              = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"; // [1] r
+export const IX6_MEMO_PROGRAM                 = "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr"; // [2] r
+export const IX6_TOKEN_AUTHORITY              = "2sJWNe9HM3A8tDd5Q7NuCvLbhMdTeqzDhKqV4Pv9Td1p"; // [3] w
 export const IX6_WHIRLPOOL                    = "CsftscgBmHuxc21r1FUCRXDFhfdzFJQTXTXSPwnGcZAa"; // [4] w
-export const IX6_TOKENMINTA                   = "So11111111111111111111111111111111111111112"; // [5] r
-export const IX6_TOKENMINTB                   = "D42TjMjz5H7toPu5md5KBXreZkCSdZMEfLQwmBhJXvb1"; // [6] r
-export const IX6_TOKENOWNERACCOUNTA           = "NkWwsEcDcBd8oL1XYUnYdbYGxzc2K3KyYHdFvUMRYAd"; // [7] w
-export const IX6_TOKENVAULTA                  = "FLqsiZSZpAoiuUVubAgueMEoDtKfkot32wcnEYLhobiU"; // [8] w
-export const IX6_TOKENOWNERACCOUNTB           = "YJbdN1mUHKvQGcCUK6t8ndUmZ3YPeaerUyhjEKzE5NV"; // [9] w
-export const IX6_TOKENVAULTB                  = "E8yvEJPx1WgqDepWN7Luh2qreAvNepaZmGqKcim9L8hw"; // [10] w
-export const IX6_TICKARRAY0                   = "HNaqSemzSgL5jWDkqBik6X4syyqVknt3CQg9XXFJu7Xw"; // [11] w
-export const IX6_TICKARRAY1                   = "9uNtbDTFkoXNgWUPs7yuVcGMW1b4Yiw1zanNDfF2s7Pv"; // [12] w
-export const IX6_TICKARRAY2                   = "Bi5Lz2PTkCKJkbADUWaLbCq36V5EFvDo1UaqbSpLhQQc"; // [13] w
+export const IX6_TOKEN_MINT_A                 = "So11111111111111111111111111111111111111112"; // [5] r
+export const IX6_TOKEN_MINT_B                 = "D42TjMjz5H7toPu5md5KBXreZkCSdZMEfLQwmBhJXvb1"; // [6] r
+export const IX6_TOKEN_OWNER_ACCOUNT_A        = "NkWwsEcDcBd8oL1XYUnYdbYGxzc2K3KyYHdFvUMRYAd"; // [7] w
+export const IX6_TOKEN_VAULT_A                = "FLqsiZSZpAoiuUVubAgueMEoDtKfkot32wcnEYLhobiU"; // [8] w
+export const IX6_TOKEN_OWNER_ACCOUNT_B        = "YJbdN1mUHKvQGcCUK6t8ndUmZ3YPeaerUyhjEKzE5NV"; // [9] w
+export const IX6_TOKEN_VAULT_B                = "E8yvEJPx1WgqDepWN7Luh2qreAvNepaZmGqKcim9L8hw"; // [10] w
+export const IX6_TICK_ARRAY_0                 = "HNaqSemzSgL5jWDkqBik6X4syyqVknt3CQg9XXFJu7Xw"; // [11] w
+export const IX6_TICK_ARRAY_1                 = "9uNtbDTFkoXNgWUPs7yuVcGMW1b4Yiw1zanNDfF2s7Pv"; // [12] w
+export const IX6_TICK_ARRAY_2                 = "Bi5Lz2PTkCKJkbADUWaLbCq36V5EFvDo1UaqbSpLhQQc"; // [13] w
 export const IX6_ORACLE                       = "2VMt1BvpoUAD2AbExfHiuFJanyNUsAuWRmMdY2MB7g4h"; // [14] w
 export const IX6_PROGRAM = "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc";
 
 /** ix 7: INCREASE_LIQUIDITY_V2 — 15 accounts */
-export const IX7_INCREASE_LIQUIDITY_V2_LIQUIDITYAMOUNT = 8489515510538n; // liquidityAmount
-export const IX7_INCREASE_LIQUIDITY_V2_TOKENMAXA = 0n; // tokenMaxA
-export const IX7_INCREASE_LIQUIDITY_V2_TOKENMAXB = 24409992722n; // tokenMaxB
-export const IX7_INCREASE_LIQUIDITY_V2_REMAININGACCOUNTSINFO = {"__optionRemaining":"AA=="}; // decoded as remaining-accounts metadata; verify byte-for-byte before editing
+export const IX7_INCREASE_LIQUIDITY_V2_LIQUIDITY_AMOUNT = 8489515510538n; // liquidity_amount
+export const IX7_INCREASE_LIQUIDITY_V2_TOKEN_MAX_A = 0n; // token_max_a
+export const IX7_INCREASE_LIQUIDITY_V2_TOKEN_MAX_B = 24409992722n; // token_max_b
+export const IX7_INCREASE_LIQUIDITY_V2_REMAINING_ACCOUNTS_INFO = {"__option":"None"}; // decoded from the program's own IDL; verify byte-for-byte before editing
 export const IX7_WHIRLPOOL                    = "CsftscgBmHuxc21r1FUCRXDFhfdzFJQTXTXSPwnGcZAa"; // [0] w
-export const IX7_TOKENPROGRAMA                = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"; // [1] r
-export const IX7_TOKENPROGRAMB                = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"; // [2] r
-export const IX7_MEMOPROGRAM                  = "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr"; // [3] r
-export const IX7_POSITIONAUTHORITY            = "2sJWNe9HM3A8tDd5Q7NuCvLbhMdTeqzDhKqV4Pv9Td1p"; // [4] w
+export const IX7_TOKEN_PROGRAM_A              = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"; // [1] r
+export const IX7_TOKEN_PROGRAM_B              = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"; // [2] r
+export const IX7_MEMO_PROGRAM                 = "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr"; // [3] r
+export const IX7_POSITION_AUTHORITY           = "2sJWNe9HM3A8tDd5Q7NuCvLbhMdTeqzDhKqV4Pv9Td1p"; // [4] w
 export const IX7_POSITION                     = "DF8D4ffCf1sgSG3BUdFGjHo13subcgiJXX4sPndLmtzn"; // [5] w
-export const IX7_POSITIONTOKENACCOUNT         = "BexkSwE2NA3mfj1Ze3iauGyy2Zw4XF58DdB6mcKQDPKP"; // [6] r
-export const IX7_TOKENMINTA                   = "So11111111111111111111111111111111111111112"; // [7] r
-export const IX7_TOKENMINTB                   = "D42TjMjz5H7toPu5md5KBXreZkCSdZMEfLQwmBhJXvb1"; // [8] r
-export const IX7_TOKENOWNERACCOUNTA           = "NkWwsEcDcBd8oL1XYUnYdbYGxzc2K3KyYHdFvUMRYAd"; // [9] w
-export const IX7_TOKENOWNERACCOUNTB           = "YJbdN1mUHKvQGcCUK6t8ndUmZ3YPeaerUyhjEKzE5NV"; // [10] w
-export const IX7_TOKENVAULTA                  = "FLqsiZSZpAoiuUVubAgueMEoDtKfkot32wcnEYLhobiU"; // [11] w
-export const IX7_TOKENVAULTB                  = "E8yvEJPx1WgqDepWN7Luh2qreAvNepaZmGqKcim9L8hw"; // [12] w
-export const IX7_TICKARRAYLOWER               = "HNaqSemzSgL5jWDkqBik6X4syyqVknt3CQg9XXFJu7Xw"; // [13] w
-export const IX7_TICKARRAYUPPER               = "HNaqSemzSgL5jWDkqBik6X4syyqVknt3CQg9XXFJu7Xw"; // [14] w
+export const IX7_POSITION_TOKEN_ACCOUNT       = "BexkSwE2NA3mfj1Ze3iauGyy2Zw4XF58DdB6mcKQDPKP"; // [6] r
+export const IX7_TOKEN_MINT_A                 = "So11111111111111111111111111111111111111112"; // [7] r
+export const IX7_TOKEN_MINT_B                 = "D42TjMjz5H7toPu5md5KBXreZkCSdZMEfLQwmBhJXvb1"; // [8] r
+export const IX7_TOKEN_OWNER_ACCOUNT_A        = "NkWwsEcDcBd8oL1XYUnYdbYGxzc2K3KyYHdFvUMRYAd"; // [9] w
+export const IX7_TOKEN_OWNER_ACCOUNT_B        = "YJbdN1mUHKvQGcCUK6t8ndUmZ3YPeaerUyhjEKzE5NV"; // [10] w
+export const IX7_TOKEN_VAULT_A                = "FLqsiZSZpAoiuUVubAgueMEoDtKfkot32wcnEYLhobiU"; // [11] w
+export const IX7_TOKEN_VAULT_B                = "E8yvEJPx1WgqDepWN7Luh2qreAvNepaZmGqKcim9L8hw"; // [12] w
+export const IX7_TICK_ARRAY_LOWER             = "HNaqSemzSgL5jWDkqBik6X4syyqVknt3CQg9XXFJu7Xw"; // [13] w
+export const IX7_TICK_ARRAY_UPPER             = "HNaqSemzSgL5jWDkqBik6X4syyqVknt3CQg9XXFJu7Xw"; // [14] w
 export const IX7_PROGRAM = "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc";
 
 /** ix 8: INCREASE_LIQUIDITY_V2 — 15 accounts */
-export const IX8_INCREASE_LIQUIDITY_V2_LIQUIDITYAMOUNT = 8490158166249n; // liquidityAmount
-export const IX8_INCREASE_LIQUIDITY_V2_TOKENMAXA = 469571750n; // tokenMaxA
-export const IX8_INCREASE_LIQUIDITY_V2_TOKENMAXB = 0n; // tokenMaxB
-export const IX8_INCREASE_LIQUIDITY_V2_REMAININGACCOUNTSINFO = {"__optionRemaining":"AA=="}; // decoded as remaining-accounts metadata; verify byte-for-byte before editing
+export const IX8_INCREASE_LIQUIDITY_V2_LIQUIDITY_AMOUNT = 8490158166249n; // liquidity_amount
+export const IX8_INCREASE_LIQUIDITY_V2_TOKEN_MAX_A = 469571750n; // token_max_a
+export const IX8_INCREASE_LIQUIDITY_V2_TOKEN_MAX_B = 0n; // token_max_b
+export const IX8_INCREASE_LIQUIDITY_V2_REMAINING_ACCOUNTS_INFO = {"__option":"None"}; // decoded from the program's own IDL; verify byte-for-byte before editing
 export const IX8_WHIRLPOOL                    = "CsftscgBmHuxc21r1FUCRXDFhfdzFJQTXTXSPwnGcZAa"; // [0] w
-export const IX8_TOKENPROGRAMA                = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"; // [1] r
-export const IX8_TOKENPROGRAMB                = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"; // [2] r
-export const IX8_MEMOPROGRAM                  = "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr"; // [3] r
-export const IX8_POSITIONAUTHORITY            = "2sJWNe9HM3A8tDd5Q7NuCvLbhMdTeqzDhKqV4Pv9Td1p"; // [4] w
+export const IX8_TOKEN_PROGRAM_A              = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"; // [1] r
+export const IX8_TOKEN_PROGRAM_B              = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"; // [2] r
+export const IX8_MEMO_PROGRAM                 = "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr"; // [3] r
+export const IX8_POSITION_AUTHORITY           = "2sJWNe9HM3A8tDd5Q7NuCvLbhMdTeqzDhKqV4Pv9Td1p"; // [4] w
 export const IX8_POSITION                     = "T2HhqNDg6RcHfTQicUx4kAqic7Py9sekFC8sixquJEf"; // [5] w
-export const IX8_POSITIONTOKENACCOUNT         = "5tzySv6M5tJeFKuysvw8ENei3LkH23tX634fsYXn5vZ6"; // [6] r
-export const IX8_TOKENMINTA                   = "So11111111111111111111111111111111111111112"; // [7] r
-export const IX8_TOKENMINTB                   = "D42TjMjz5H7toPu5md5KBXreZkCSdZMEfLQwmBhJXvb1"; // [8] r
-export const IX8_TOKENOWNERACCOUNTA           = "NkWwsEcDcBd8oL1XYUnYdbYGxzc2K3KyYHdFvUMRYAd"; // [9] w
-export const IX8_TOKENOWNERACCOUNTB           = "YJbdN1mUHKvQGcCUK6t8ndUmZ3YPeaerUyhjEKzE5NV"; // [10] w
-export const IX8_TOKENVAULTA                  = "FLqsiZSZpAoiuUVubAgueMEoDtKfkot32wcnEYLhobiU"; // [11] w
-export const IX8_TOKENVAULTB                  = "E8yvEJPx1WgqDepWN7Luh2qreAvNepaZmGqKcim9L8hw"; // [12] w
-export const IX8_TICKARRAYLOWER               = "HNaqSemzSgL5jWDkqBik6X4syyqVknt3CQg9XXFJu7Xw"; // [13] w
-export const IX8_TICKARRAYUPPER               = "HNaqSemzSgL5jWDkqBik6X4syyqVknt3CQg9XXFJu7Xw"; // [14] w
+export const IX8_POSITION_TOKEN_ACCOUNT       = "5tzySv6M5tJeFKuysvw8ENei3LkH23tX634fsYXn5vZ6"; // [6] r
+export const IX8_TOKEN_MINT_A                 = "So11111111111111111111111111111111111111112"; // [7] r
+export const IX8_TOKEN_MINT_B                 = "D42TjMjz5H7toPu5md5KBXreZkCSdZMEfLQwmBhJXvb1"; // [8] r
+export const IX8_TOKEN_OWNER_ACCOUNT_A        = "NkWwsEcDcBd8oL1XYUnYdbYGxzc2K3KyYHdFvUMRYAd"; // [9] w
+export const IX8_TOKEN_OWNER_ACCOUNT_B        = "YJbdN1mUHKvQGcCUK6t8ndUmZ3YPeaerUyhjEKzE5NV"; // [10] w
+export const IX8_TOKEN_VAULT_A                = "FLqsiZSZpAoiuUVubAgueMEoDtKfkot32wcnEYLhobiU"; // [11] w
+export const IX8_TOKEN_VAULT_B                = "E8yvEJPx1WgqDepWN7Luh2qreAvNepaZmGqKcim9L8hw"; // [12] w
+export const IX8_TICK_ARRAY_LOWER             = "HNaqSemzSgL5jWDkqBik6X4syyqVknt3CQg9XXFJu7Xw"; // [13] w
+export const IX8_TICK_ARRAY_UPPER             = "HNaqSemzSgL5jWDkqBik6X4syyqVknt3CQg9XXFJu7Xw"; // [14] w
 export const IX8_PROGRAM = "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc";
 
 // ---------------------------------------------------------------- transaction
