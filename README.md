@@ -41,7 +41,9 @@ No private key, no wallet, no signing is involved at any point.
    fails, but it no longer proves what its declaration says it proves.
 3. **Every recipe in `out/` reproduces its transaction** byte for byte against a fresh RPC
    fetch. A recipe that only fails because the Whirlpool codecs are absent (they are not
-   vendored) is reported as `SKIP`, never as a pass.
+   vendored) is reported as `SKIP`, never as a pass — unless the stored on-chain IDL is
+   reachable, in which case that recipe is verifiable and a `SKIP` means the migration
+   stopped working.
 4. **Every control fails for its own mutation** — the source recipe is run first and its
    failures become the baseline; a control must exceed it. A control that fails only for
    reasons its source already fails for proves nothing, and an unreachable RPC is reported
@@ -75,7 +77,8 @@ disagreements rather than only the number they happen to agree on.
 `remix-from-signature.mjs` targets one program (Whirlpool) and names its fields from the
 program's generated codecs. It needs those codecs on disk — they are not shipped here —
 via `--idl <dir>` or `IDL_GEN_DIR`; without them it exits with a message naming the
-variable rather than failing mid-run. `remix-multi.mjs` is the common Solana case — an
+variable rather than failing mid-run. (Verification does **not** need them: see "What the
+stored IDL changes" below.) `remix-multi.mjs` is the common Solana case — an
 aggregator reaching a swap through several programs — and dispatches each instruction
 (top-level and CPI) against the directory of per-program IDLs **shipped in `idl/multi/`**
 in this repo, so it works on a fresh clone with no extra setup.
@@ -149,10 +152,11 @@ level over: as long as the single-program emitter wrote every CPI as `(unknown)`
 CPI label on that recipe was untestable — the verifier's label branch was gated on
 `isMultiProgram`, so it skipped the entry point entirely. Checked against the released
 code, the old verifier **passes** this control and the current one fails it with exactly
-one attributable failure. Three of the four recipes in `out/` pass on a fresh clone;
-the fourth
-(`out/remix-6754RLWd.ts`, single-program Whirlpool) passes once the Whirlpool codec
-directory is supplied via `--idl` or `IDL_GEN_DIR`.
+one attributable failure. **All five** recipes in `out/` now pass on a fresh clone. The
+fourth (`out/remix-6754RLWd.ts`, single-program Whirlpool) used to need the Whirlpool codec
+directory supplied via `--idl` or `IDL_GEN_DIR`, and was reported `SKIP` without it; its
+arguments are now decoded from the vendored, fingerprint-verified on-chain IDL (see
+"What the stored IDL changes" below).
 
 The `native-name-*` controls exist because byte identity cannot see a wrong name: in
 both, every byte matches the chain, and only the label is false. Until native decoding was
@@ -314,7 +318,10 @@ away from the parse itself.
   on any shipped IDL that binds nothing.
 - Account roles come from the IDL's account order. Where an IDL's order differs from the
   program's real one, labels are wrong even though the bytes are right.
-- `remainingAccountsInfo` is reported as raw base64 rather than decoded.
+- `remainingAccountsInfo` is reported as raw base64 rather than decoded — except in the
+  single-program Whirlpool path, where the stored on-chain IDL decodes it (as
+  `{"__option":"None"}` or the full slice list), and the generated path is the one that
+  refuses it.
 - Compile fees, prioritization fees and blockhash are captured, not remixed.
 - Inner (CPI) instructions are recorded for verification only. Rebuilding the message must
   not append them — they are the parent program's effects, not parts of the signed message.
@@ -330,10 +337,52 @@ away from the parse itself.
   bytes.
 - **`neg/*.ts`** — generated from `out/` by `src/make-negatives.mjs`; mutated copies of the
   passing recipes, not independent transactions.
+- **`idl/sememe-store/`** — a content-addressed IDL store: the Whirlpool program's own
+  on-chain IDL plus a receipt recording program, source account, slot and fingerprint.
+  Produced by [`auroraxo/sememe`](https://github.com/auroraxo/sememe), which pulls it from
+  the chain and stores it by SHA-256 of its canonical JSON.
 
 No Whirlpool-generated codecs are vendored here. The Orca repository relicensed in
 February 2025, so the single-program path asks you to point `IDL_GEN_DIR` at codecs you
-generated yourself rather than shipping someone else's.
+generated yourself rather than shipping someone else's. The stored on-chain IDL is a
+different thing and IS vendored: it is the deployed program's own interface, pulled from
+the chain, and it is re-verified against its own bytes before every use.
+
+## What the stored IDL changes
+
+`src/sememe-idl.mjs` decodes single-program Whirlpool arguments from the stored on-chain
+IDL instead of from generated codecs. Three things follow, and all three are measured
+rather than asserted:
+
+- **The flagship recipe verifies on a fresh clone.** `out/remix-6754RLWd.ts` was `SKIP` in
+  CI for want of the Orca codecs; it now passes, with 7 Whirlpool instructions decoded and
+  14 CPIs verified.
+- **The bytes name themselves.** The old verifier looked the argument layout up *by* the
+  recipe's label, so a false label found a false layout and decoded it. The stored IDL is
+  keyed the other way: the discriminator names its own instruction, and the name must
+  match the label. The `idl-name-top-whirlpool` control measures this — relabel
+  `SWAP_V2` as `SWAP`, bytes untouched:
+  - old verifier: `PASS` — "decoded 10/10 with generated IDL codecs"
+  - current verifier: `FAIL` — "ix 6: stored IDL names these bytes swap_v2, recipe claims SWAP"
+- **Two independent decoders cross-check each other.** When the generated codecs are also
+  present, every Whirlpool instruction is decoded twice and the values compared: 7
+  instructions, 24 fields, 17 exact agreements, 7 fields the generated path refuses
+  (`option`/`defined` args), **0 disagreements**. The two sides come from different code
+  and different provenance for the layout, so agreement is evidence rather than a
+  tautology.
+
+The artifact is verified, not trusted: `sha256(canonicalJson(idl) + '\n')` must equal the
+receipt's fingerprint, re-checked before every decode. A store that is present and does
+not verify is a **failure**, not a fallback — a tampered artifact is caught and reported
+rather than skipped over, because "the check found the damage and the run went green
+anyway" is the exact failure mode this repository exists to catch.
+
+The decoder itself comes from the `auroraxo/sememe` checkout (`SEMEME_DIR`, or a sibling
+`~/github_repos/sememe`). It is imported directly, not vendored, so the two sides cannot
+drift apart; its decode core has **no npm dependencies**, which is what makes that
+possible in a repository with no `package.json` and no `node_modules`. Where neither
+decoder is reachable, the recipe reports `SKIP` as before — an unverifiable claim, never a
+pass.
 
 ## License
 
