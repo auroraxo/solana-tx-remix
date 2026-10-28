@@ -44,15 +44,26 @@
  * Since the sememe migration the flagship recipe is no longer in that category: its
  * arguments are decoded from the vendored, fingerprint-verified on-chain IDL
  * (idl/sememe-store/), so it verifies here instead of reporting SKIP. The SKIP path stays
- * for a machine with neither the generated codecs nor the sememe checkout — but on CI the
- * absence of a PASS for out/remix-6754RLWd.ts is now a finding, not a shrug, and check 5
- * below makes that explicit.
+ * for a machine with neither the generated codecs nor the sememe checkout — but where a
+ * sememe store IS reachable, a SKIP for that recipe means the migration silently stopped
+ * working, and check 3 below reports it as a failure rather than letting CI look green
+ * over an unverified flagship.
  */
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { unusableIdlFiles } from "../src/idl-bitquery.mjs";
+import { sememeStatus, WHIRLPOOL_PROGRAM } from "../src/sememe-idl.mjs";
+
+// Whether the second decoder is reachable on this machine. Resolved once, before the
+// recipe loop, so the SKIP verdict below can tell "nothing to verify with" (documented,
+// unchanged) from "the migration stopped working" (a finding).
+const sememeState = await sememeStatus(WHIRLPOOL_PROGRAM);
+const sememeUsable = sememeState.usable;
+note(sememeUsable
+  ? `sememe store : reachable — ${sememeState.fingerprint}`
+  : `sememe store : not usable (${sememeState.reason}) — ${sememeState.error}`);
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const MULTI_IDL = path.join(ROOT, "idl", "multi");
@@ -61,8 +72,8 @@ const NEGATIVES = path.join(ROOT, "src", "make-negatives.mjs");
 const RPC = process.env.SOLANA_RPC || "https://api.mainnet-beta.solana.com";
 const FETCH_RE = /cannot fetch source transaction|fetch failed|ECONNREFUSED|ECONNRESET|ENOTFOUND|429|502|503|504/i;
 const CODEC_RE = /but no generated codec found/;
-// A recipe that can be verified without the generated codecs: its arguments come from the
-// vendored on-chain IDL instead. Before the sememe migration this was empty, and the
+// A recipe that CAN be verified without the generated codecs: its arguments come from the
+// vendored on-chain IDL instead. Before the sememe migration this list was empty and the
 // flagship recipe reported SKIP in CI.
 const SEMEME_CAPABLE = /^remix-6754RLWd\.ts$/;
 const FETCH_ATTEMPTS = 3;
@@ -142,10 +153,16 @@ for (const r of recipes) {
     const codecOnly = lines.length > 0 && lines.every((l) => CODEC_RE.test(l));
     if (codecOnly) {
       note(`SKIP  out/${r} — needs IDL_GEN_DIR (Whirlpool codecs are not vendored; README documents this)`);
-      if (SEMEME_CAPABLE.test(r)) {
+      // Only a finding when the migration could have applied. A machine with no sememe
+      // checkout has nothing to migrate TO — that is the documented fresh-clone state and
+      // it must keep reporting SKIP rather than turning a missing optional dependency into
+      // a red run. When sememe IS reachable and the recipe still SKIPs, the vendored store
+      // is missing or unreadable, and the flagship recipe would silently be back to
+      // unverified while CI looked green.
+      if (SEMEME_CAPABLE.test(r) && sememeUsable) {
         flag(
-          `out/${r} is verifiable from the vendored sememe store and still reports SKIP — ` +
-            `the migration is not in effect (is idl/sememe-store/ present, and SEMEME_DIR set?)`,
+          `out/${r} has a reachable sememe store and still reports SKIP — ` +
+            `the migration is not in effect (is idl/sememe-store/ present?)`,
         );
       }
     } else {
