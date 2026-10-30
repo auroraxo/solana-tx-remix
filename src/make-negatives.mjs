@@ -190,6 +190,20 @@ const specs = [
     mutate: (s) => relabelInstruction(s, 6, "SWAP"),
   },
   {
+    from: "remix-multi-2Wti3kFM.ts",
+    to: "idl-name-stored-only.ts",
+    why: "an instruction named ONLY by the stored on-chain IDL relabelled from a vendored-only name — bytes untouched",
+    // The control for the second migration. `create_idempotent_associated_token_account`
+    // is missing from the vendored copy in idl/multi/jupiter-amm/amm.json, so before the
+    // stored artifact was layered in, this instruction was emitted as `(unknown)` — and
+    // `(unknown)` is a state every name check deliberately skips. Two mutations in one:
+    // the label is now false relative to the bytes, AND it is a name the stale vendored
+    // copy does not even carry. If the verifier ever falls back to the vendored copy for
+    // Jupiter (store absent, or a broken artifact silently replaced), it cannot resolve
+    // either label and this control passes — acceptance then goes red, which is the point.
+    mutate: (s) => relabelInstruction(s, 0, "create_token_account on JUP6…TaV4"),
+  },
+  {
     from: "remix-multi-4HZWSH28.ts",
     to: "idl-name-swap2.ts",
     why: "dflow `swap2` relabelled `swap` — bytes untouched, only the label false",

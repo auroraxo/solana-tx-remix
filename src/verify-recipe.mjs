@@ -24,7 +24,7 @@ import {
   sememeStatus,
 } from "./sememe-idl.mjs";
 import { encodeNative, decodeNative, isNativeProgram, isNativeName, nativeProgramLabel } from "./native.mjs";
-import { buildMultiResolver, multiIdlDirPresent, multiIdlProgramCount } from "./dispatch.mjs";
+import { buildStoredResolver, multiIdlDirPresent, multiIdlProgramCount } from "./dispatch.mjs";
 
 const recipePath = process.argv[2];
 if (!recipePath) {
@@ -95,8 +95,27 @@ const isMultiProgram = /export const MULTI_PROGRAM = true;/.test(src);
  * same payload, which is the exact class of defect this tool exists to catch. Both sides of
  * the label now come from dispatch.mjs, so emitter and verifier cannot disagree about what a
  * name means.
+ *
+ * Since the second migration BOTH sides are the STORED resolver: the emitter
+ * (src/remix-multi.mjs) layers the fingerprint-verified on-chain artifacts over the
+ * checked-in copies in idl/multi/, and this side does the same, so the label is re-derived
+ * from the same authoritative source the label was written from. A single-program recipe
+ * keeps the sync resolver for its `(unknown)` sweep below — it is not labelled from the
+ * multi tables in the first place.
+ *
+ * A stored artifact that cannot be used is reported here as a failure, not as "fall back
+ * to the vendored copy": the vendored copy is exactly what the migration exists to
+ * replace, and it is stale (measured 2026-10-30 — see sememe's
+ * research/vendored-drift-tx-remix-2026-10-30.json).
  */
-const multiNameFor = buildMultiResolver();
+const storedResolver = await buildStoredResolver();
+const multiNameFor = storedResolver.nameFor;
+for (const problem of storedResolver.problems) {
+  failures.push(
+    `stored artifact for ${problem.program ?? "the store"} is unusable (${problem.reason}): ${problem.error}` +
+      ` — labels for that program would fall back to the stale vendored copy, which is not acceptable`,
+  );
+}
 let multiProgramCount = 0;
 if (isMultiProgram) {
   if (!multiIdlDirPresent()) {

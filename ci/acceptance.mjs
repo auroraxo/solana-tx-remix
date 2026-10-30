@@ -269,6 +269,31 @@ if (!sememeUsable) {
     } else {
       note("FAIL-AS-DECLARED  tampered store object — reported, not fallen back from");
     }
+
+    // The SAME tampering, through the MULTI-program path, which reads the store by a
+    // different loader (src/sememe-multi.mjs). This is a separate check because it was a
+    // separate defect: that loader read the object the receipt named and never re-hashed
+    // it, so a renamed instruction was accepted while the single-program path refused the
+    // identical damage. One store with two readers must verify with one strength — the
+    // measured failure this check now exists to prevent.
+    const multiRes = run("node", [VERIFY, "out/remix-multi-2Wti3kFM.ts"], {
+      env: { ...process.env, SEMEME_STORE: tampered },
+    });
+    const multiReported = /object and receipt disagree|is unusable \(broken\)/.test(multiRes.out);
+    if (multiRes.status === 0) {
+      flag(
+        "a tampered sememe store object was accepted by the MULTI-program path: " +
+          "verify-recipe.mjs exited 0 for out/remix-multi-2Wti3kFM.ts. src/sememe-multi.mjs " +
+          "does not re-hash the object against its receipt.",
+      );
+    } else if (!multiReported) {
+      flag(
+        `the multi-program path failed on the tampered store but did not report it ` +
+          `(expected "object and receipt disagree"):\n      ${multiRes.out.trim().split("\n").slice(0, 3).join("\n      ")}`,
+      );
+    } else {
+      note("FAIL-AS-DECLARED  tampered store object on the multi-program path — reported, not fallen back from");
+    }
     fs.rmSync(path.dirname(tampered), { recursive: true, force: true });
   }
 }

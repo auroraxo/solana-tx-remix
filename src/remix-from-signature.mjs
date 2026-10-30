@@ -21,7 +21,7 @@ import {
   kitVersionLiteral,
 } from "./remix.mjs";
 import { decodeArgs, schemaForInstruction } from "./args.mjs";
-import { buildMultiResolver, defaultMultiIdlDir } from "./dispatch.mjs";
+import { buildStoredResolver, defaultMultiIdlDir } from "./dispatch.mjs";
 import {
   sememeAccountRoles,
   sememeDecodeArgs,
@@ -124,15 +124,37 @@ const programName = programId === WHIRLPOOL_PROGRAM ? "whirlpool" : programId.sl
 // Whirlpool example were unlabelled for that reason alone. A recipe that names the outer
 // instruction while its CPIs read "(unknown)" states half the transaction.
 //
-// buildMultiResolver is the same table remix-multi.mjs writes labels from, so the two
+// buildStoredResolver is the same table remix-multi.mjs writes labels from, so the two
 // entry points cannot disagree: per-program tag widths (Token-2022 `initializeAccount`
-// tag=0x01 vs Aquifer `swap` tag=0x01), the native fallback, and the generated Anchor
-// modules for the target program all resolve through one definition. buildRecipe's
-// idlMap fallback still handles the Anchor target directly.
-const nameFor = buildMultiResolver({
+// tag=0x01 vs Aquifer `swap` tag=0x01), the native fallback, the generated Anchor
+// modules for the target program, and the STORED on-chain artifacts for every program
+// the store holds all resolve through one definition. buildRecipe's idlMap fallback
+// still handles the Anchor target directly.
+//
+// The stored artifacts are layered over the vendored copies here too. This entry point
+// used the vendored-only resolver while the multi entry point used the stored one — two
+// entry points describing the same transaction from different sources, which is the drift
+// this repository exists to catch. Measured: the vendored Jupiter copy lacks
+// `create_idempotent_associated_token_account`, an instruction that occurs in real
+// mainnet traffic, so this path printed `(unknown)` for it.
+const {
+  nameFor,
+  problems: storedProblems,
+  conflicts: storedConflicts,
+} = await buildStoredResolver({
   multiIdlDir: defaultMultiIdlDir(),
   genIdlMap: idlMap,
 });
+for (const problem of storedProblems) {
+  console.error(`stored artifact unusable for ${problem.program ?? "the store"}: ${problem.reason} — ${problem.error}`);
+}
+for (const conflict of storedConflicts) {
+  if (conflict.discriminator !== undefined) {
+    console.error(`name conflict on ${conflict.program} for ${conflict.discriminator}: vendored ${conflict.vendored} vs stored ${conflict.stored}`);
+  } else {
+    console.error(`discriminator ${conflict.kind} ${conflict.name} on ${conflict.program}: stored ${conflict.stored} vs derived ${conflict.derived} — ${conflict.resolution}`);
+  }
+}
 const recipe = await buildRecipe(tx, idlMap, {
   programId,
   programName,

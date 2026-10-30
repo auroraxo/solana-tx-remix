@@ -423,6 +423,66 @@ possible in a repository with no `package.json` and no `node_modules`. Where nei
 decoder is reachable, the recipe reports `SKIP` as before — an unverifiable claim, never a
 pass.
 
+## What the stored IDL changes for MULTI-program recipes
+
+The first migration moved ONE program — Whirlpool — off its generated codecs. The
+multi-program path kept reading the IDL copies checked into `idl/multi/`, which is the
+thing a content-addressed store exists to replace: snapshots with no provenance, no
+fingerprint and no freshness check. Those copies are now measured rather than assumed.
+
+**The measurement** (sememe's `tools/vendored-drift.mjs`, against the on-chain artifacts
+pulled on 2026-10-30; report:
+`auroraxo/sememe@research/vendored-drift-tx-remix-2026-10-30.json`):
+
+| vendored copy | instructions | on-chain | missing from the vendored copy |
+|---|---|---|---|
+| `idl/multi/jupiter-amm/amm.json` | 17 | 19 | `create_idempotent_associated_token_account`, `withdraw_token_account_excess_lamports` |
+| `idl/multi/dflow/dflow.json` | 17 | 18 | `withdraw_fees` |
+| `idl/multi/jupiter-order_engine/order_engine.json` | 1 | 1 | — |
+| `idl/multi/jupiter-rfq_v2/rfq_v2.json` | 1 | 1 | — |
+| `idl/multi/aquifer`, `bisonfi`, `solfi`, `spl/token-2022` | 2 / 3 / 1 / 44 | — | no on-chain Anchor IDL exists for these programs |
+
+Every vendored copy that HAS an on-chain IDL is strictly stale. Four of the eight
+programs publish no on-chain Anchor IDL at all — they are native or shank-origin programs
+whose only description is the checked-in file — so for those the vendored copy is still
+the right source, and it is kept.
+
+**The defect that was real traffic.** `create_idempotent_associated_token_account` is
+missing from the vendored Jupiter copy and appears in **real mainnet traffic**. The
+recipe emitted from the vendored copy printed `(unknown)` for it, and `(unknown)` is the
+one state every label check deliberately skips — so the transaction was described
+half-way and nothing complained. The shipped recipe
+`out/remix-multi-2Wti3kFM.ts` (signature `2Wti3kFMoFxTPX7WMBxJqYBEBdPuwi4gkhPEtUnwq1BRhQUoFzNAUNFDA4BacdFLsDct3dugWQ7EiiwdxDqKGKen`)
+names it, and the emitter's count went from 12/15 to 13/15 with the transaction bytes
+unchanged.
+
+**What changed in the code.** `src/sememe-multi.mjs` loads every stored artifact in the
+store as a per-program instruction table; `buildStoredResolver` in `src/dispatch.mjs`
+layers those tables over the vendored copies, and both the emitter
+(`src/remix-multi.mjs`) and the verifier (`src/verify-recipe.mjs`) resolve labels
+through it. The overlay is additive per program: the vendored copy still describes the
+programs with no on-chain IDL, and the stored copy fills in the rest.
+
+**Two things the migration does not paper over:**
+
+- A **stored** discriminator always wins over a **derived** one, and the disagreement is
+  reported rather than resolved silently. Jupiter AMM v6 stores `5368c096` for
+  `create_idempotent_associated_token_account` where Anchor's rule derives `bdbcecfa`;
+  five real payloads carry `5368c096` and re-encode byte-exactly, so the stored value is
+  the one that survives contact with the chain.
+- The multi-program store loader **re-hashes the object against its receipt**, like the
+  single-program one. It did not at first, and the acceptance harness caught the
+  difference: a tampered Jupiter object — valid JSON, one instruction renamed — was
+  ACCEPTED by the multi path while the single path refused the identical damage. One
+  store with two readers must verify with one strength. Both paths are now checked by
+  `ci/acceptance.mjs`.
+
+**Falsification.** `neg/idl-name-stored-only.ts` relabels the newly-named instruction
+to a name the stale vendored copy carries. The verifier answers:
+`ix 0: bytes resolve to create_idempotent_associated_token_account on JUP6…TaV4, recipe
+claims create_token_account` — exit 1. A verifier that fell back to the vendored copy
+could not resolve either label and would pass.
+
 ## License
 
 MIT — see `LICENSE`. The programs named in the recipes and IDLs are third-party code;

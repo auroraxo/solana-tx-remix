@@ -29,7 +29,7 @@ import {
 } from "./remix.mjs";
 import { decodeArgs, schemaForInstruction } from "./args.mjs";
 import { loadProgramDispatch, makeNameResolver, parseIdlJson } from "./idl-bitquery.mjs";
-import { buildMultiResolver, defaultMultiIdlDir } from "./dispatch.mjs";
+import { buildStoredResolver, defaultMultiIdlDir } from "./dispatch.mjs";
 
 const args = process.argv.slice(2);
 const signature = args.find((a) => !a.startsWith("--"));
@@ -65,11 +65,40 @@ const tx = await fetchTransaction(signature);
 // that verify-recipe.mjs re-derives labels from the SAME tables this emitter wrote them
 // from — the verifier used to count multi-program names without checking them, and a
 // label changed after the fact sailed through.
-const nameFor = buildMultiResolver({
+// The stored, fingerprint-verified on-chain IDLs are layered OVER the checked-in copies
+// in idl/multi/. Those copies are snapshots without provenance, and measured on 2026-10-30
+// every one of them that has an on-chain IDL is stale: Jupiter AMM v6 lacks 2
+// instructions and DFlow 1. One of the missing ones
+// (`create_idempotent_associated_token_account`) occurs in real mainnet traffic, and the
+// recipe emitted from the vendored copy printed `(unknown)` for it. The stored artifact
+// names it.
+const {
+  nameFor,
+  stored: storedState,
+  problems: storedProblems,
+  conflicts: storedConflicts,
+} = await buildStoredResolver({
   multiIdlDir,
   genIdlDir: flag("--gen-idl", process.env.IDL_GEN_DIR ||
     path.resolve(process.env.HOME, "github_repos/orca-whirlpools-recon/ts-sdk/client/src/generated/instructions")),
 });
+if (storedProblems.length) {
+  for (const problem of storedProblems) {
+    console.error(`stored artifact unusable for ${problem.program ?? "the store"}: ${problem.reason} — ${problem.error}`);
+  }
+}
+if (storedConflicts.length) {
+  for (const conflict of storedConflicts) {
+    if (conflict.discriminator !== undefined) {
+      console.error(`name conflict on ${conflict.program} for ${conflict.discriminator}: vendored ${conflict.vendored} vs stored ${conflict.stored}`);
+    } else {
+      // stored-vs-derived discriminator disagreement. Not fatal: the stored value is the
+      // one that survived real payload bytes (Jupiter AMM v6's
+      // create_idempotent_associated_token_account is the measured case).
+      console.error(`discriminator ${conflict.kind} ${conflict.name} on ${conflict.program}: stored ${conflict.stored} vs derived ${conflict.derived} — ${conflict.resolution}`);
+    }
+  }
+}
 
 // Programs this transaction actually CALLS (top-level + CPI), derived from instructions
 // rather than accountKeys: accountKeys includes fee payer and accounts, and for v0
