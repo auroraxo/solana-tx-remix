@@ -227,7 +227,7 @@ export const INNER_BYTES = {
     accounts: [21, 45, 15, 59],
     data: "DEIJAAAAAAAACA==",
   },
-  /** (unknown) on cpam…1sGG */
+  /** event:EvtSwap2 on cpam…1sGG */
   [4][6]: {
     program: "cpamdpZCGKUy5JxQXB4dcpGPiikHawvSWAd6mEn1sGG",
     accounts: [48],
@@ -353,7 +353,7 @@ export const INNER_BYTES = {
     accounts: [1, 40, 19, 0],
     data: "DHEAAAAAAAAABg==",
   },
-  /** (unknown) on 6EF8…wF6P */
+  /** event:TradeEvent on 6EF8…wF6P */
   [4][27]: {
     program: "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P",
     accounts: [55],

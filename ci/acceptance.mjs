@@ -435,6 +435,8 @@ note("\n== 6. Anchor event self-CPIs: named when an IDL in this tree declares th
   let eventPayloads = 0;
   let namedFromIdl = 0;
   let honestlyUnknown = 0;
+  let misnamed = 0;
+  const sectionStart = red.length;
   for (const file of recipeFiles) {
     const src = fs.readFileSync(path.join(ROOT, "out", file), "utf8");
     for (const entry of recipeEntries(src)) {
@@ -459,7 +461,12 @@ note("\n== 6. Anchor event self-CPIs: named when an IDL in this tree declares th
               `${declared.name}, recipe labels it ${label ?? "(unknown)"}`,
           );
         }
-        namedFromIdl++;
+        // Counted as named only when BOTH the resolver and the recipe agree with the
+        // declared event. Counting the declaration alone made the summary say "5 named"
+        // while findings sat right above it: the check would report coverage it had just
+        // refused to accept.
+        if (resolved?.name === want && label === want) namedFromIdl++;
+        else misnamed++;
       } else {
         if (label !== null) {
           flag(
@@ -475,6 +482,12 @@ note("\n== 6. Anchor event self-CPIs: named when an IDL in this tree declares th
     flag(
       "no Anchor event self-CPI payload found in out/ — this check found nothing to test, " +
         "so it proves nothing either way",
+    );
+  } else if (red.length > sectionStart) {
+    note(
+      `event self-CPI payloads in out/: ${namedFromIdl} named from a declared event, ` +
+        `${misnamed} declared but named wrong, ${honestlyUnknown} honestly (unknown) ` +
+        `(no IDL in this tree declares them)`,
     );
   } else {
     note(

@@ -88,9 +88,10 @@ No private key, no wallet, no signing is involved at any point.
    The check builds its event table by reading the IDL JSON files **directly** — the
    discriminator at bytes `8..16`, never bytes `0..8` — so it is a witness independent
    of the resolver under test, and it fails in both directions: an event the tree can name
-   but the recipe calls `(unknown)`, and a label for an event no IDL declares. Two
-   controls hold it in place: `neg/event-name-withheld` (the label deleted) and
-   `neg/event-name-wrong` (the label replaced with an instruction name). The wire
+   but the recipe calls `(unknown)`, and a label for an event no IDL declares. Four
+   controls hold it in place: `neg/event-name-withheld` and `neg/event-name-withheld-cpam`
+   and `neg/event-name-withheld-pump` (the label deleted) and `neg/event-name-wrong`
+   (the label replaced with an instruction name). The wire
    constant is cross-checked against sememe's own codec export, because the same
    off-by-eight lookup mistake once shipped inside sememe's vendored-drift tool and
    reported zero events on a payload set that was more than half events.
@@ -501,6 +502,51 @@ to a name the stale vendored copy carries. The verifier answers:
 `ix 0: bytes resolve to create_idempotent_associated_token_account on JUP6…TaV4, recipe
 claims create_token_account` — exit 1. A verifier that fell back to the vendored copy
 could not resolve either label and would pass.
+
+## Two more programs: the "no IDL" claim was wrong
+
+On 2026-10-30 the shipped recipe `out/remix-2Apc8uSC.ts` carried three CPI labels that
+read `(unknown)` — the one state every label check deliberately skips, so nothing
+complained. Two of them were on programs this repository had assumed published no
+on-chain IDL at all: **cp-amm** (`cpamdpZCGKUy5JxQXB4dcpGPiikHawvSWAd6mEn1sGG`,
+Meteora DAMM v2) and **pump.fun** (`6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P`).
+
+**The assumption was false, and one pull falsified it.** Both programs publish an
+on-chain Anchor IDL; both artifacts are now in `idl/sememe-store/` with receipts:
+
+| program | on-chain source | slot | instructions | events |
+|---|---|---|---|---|
+| cp-amm | `anchor:idl` @ `F1hSvutXSc9iAvB9bQPmjNDwiN2tCXzazTEEvDgNCBMa` | 463372654 | 38 | 23 |
+| pump.fun | `anchor:idl` @ `AYgC53tU5BbP2NAnv5nConJxAdpQZctvmZK88pu69xRs` | 463372656 | 47 | 28 |
+
+Both IDLs **store** every discriminator (38/38 and 47/47 instructions, 23/23 and 28/28
+events), and every stored value equals Anchor's derivation rule byte for byte — so no
+derivation was needed and no gap had to be filled in.
+
+**What the three labels became.** Re-emitting the recipe from the same public signature
+changed exactly three labels and nothing else — `INSTRUCTION_BYTES`, `INNER_BYTES`,
+`ACCOUNTS` and the transaction bytes are byte-identical:
+
+- cpi `[4][3]` on cp-amm: `(unknown)` → `swap`
+- cpi `[4][6]` on cp-amm: `(unknown)` → `event:EvtSwap2`
+- cpi `[4][27]` on pump.fun: `(unknown)` → `event:TradeEvent`
+
+**The falsification that drove it.** Before the artifacts existed, acceptance check 6
+was *green* about these payloads precisely because it could not name them — it counted
+them as "honestly (unknown), no IDL in this tree declares them". The moment the two
+artifacts landed, the same check went red with three findings, which is the check
+working: the tree can now name them, so it must. The summary line was also corrected —
+it used to count a payload as "named" from the declaration alone, so it printed "5 named"
+while three findings sat directly above it; it now counts only payloads where the
+resolver and the recipe both agree.
+
+**What this says about the product.** `sememe`'s premise is that a program either
+publishes an interface or does not, and that the interface can be pulled once and then
+used offline. This is the first case where the *absence* of an interface was the
+assumption and the pull killed it: two of the three unnameable payloads on a real
+mainnet transaction were nameable all along. The honest limit is that the opposite may
+also be true — a program may publish an IDL that describes fewer instructions than its
+traffic uses, and a pull alone does not prove coverage of the traffic.
 
 ## License
 

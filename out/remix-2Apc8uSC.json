@@ -519,7 +519,7 @@
         {
           "program": "cpamdpZCGKUy5JxQXB4dcpGPiikHawvSWAd6mEn1sGG",
           "isTarget": false,
-          "name": null,
+          "name": "swap",
           "discriminator": "f8c69e91e17587c8",
           "argBytes": 16,
           "accountCount": 14,
@@ -574,9 +574,9 @@
         {
           "program": "cpamdpZCGKUy5JxQXB4dcpGPiikHawvSWAd6mEn1sGG",
           "isTarget": false,
-          "name": null,
-          "discriminator": "e445a52e51cb9a1d",
-          "argBytes": 188,
+          "name": "event:EvtSwap2",
+          "discriminator": "e445a52e51cb9a1dbd4233a826507599",
+          "argBytes": 180,
           "accountCount": 1,
           "accountsResolved": [
             "3rmHSu74h1ZcmAisVcWerTCiRDQbUrBKmcwptYGjHfet"
@@ -925,9 +925,9 @@
         {
           "program": "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P",
           "isTarget": false,
-          "name": null,
-          "discriminator": "e445a52e51cb9a1d",
-          "argBytes": 405,
+          "name": "event:TradeEvent",
+          "discriminator": "e445a52e51cb9a1dbddb7fd34ee661ee",
+          "argBytes": 397,
           "accountCount": 1,
           "accountsResolved": [
             "Ce6TQqeHC9p8KetsN6JsjHK7UTZk7nasjjnr7XxXp9F1"

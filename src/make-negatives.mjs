@@ -302,6 +302,27 @@ const specs = [
   },
   {
     from: "remix-2Apc8uSC.ts",
+    to: "event-name-withheld-cpam.ts",
+    why: "the cp-amm EvtSwap2 event label deleted to `(unknown)` while the stored IDL declares it",
+    // First program of the 30.10 store extension whose EVENT table is pinned by a control.
+    // The label was genuinely `(unknown)` in the shipped recipe until the cp-amm on-chain
+    // IDL joined idl/sememe-store — this control keeps that gap from reopening silently:
+    // if the artifact stops declaring EvtSwap2, the control's failure collapses onto the
+    // source recipe's baseline and the no-control-may-go-unjudged gate goes red.
+    mutate: (s) => unlabelInner(s, 4, 6),
+  },
+  {
+    from: "remix-2Apc8uSC.ts",
+    to: "event-name-withheld-pump.ts",
+    why: "the pump.fun TradeEvent event label deleted to `(unknown)` while the stored IDL declares it",
+    // Same gap, second program: TradeEvent on 6EF8...wF6P was honestly `(unknown)` in the
+    // shipped recipe before its on-chain IDL was pulled. The claim that neither program
+    // published an IDL was falsified by pulling both; these two controls are the wire-level
+    // memory of that correction.
+    mutate: (s) => unlabelInner(s, 4, 27),
+  },
+  {
+    from: "remix-2Apc8uSC.ts",
     to: "v1-as-legacy.ts",
     why: "real SIMD-0385 v1 transaction re-labelled `legacy` — bytes identical, wire format claim false",
     // The v1 half of the same defect, and the one that carried ~37% of mainnet. The
@@ -332,6 +353,11 @@ const specs = [
     // Stamping it back is what makes the gate falsifiable: if the verifier ever starts
     // trusting a label it cannot re-derive from the program's own IDL, this control passes
     // and acceptance goes red.
+    //
+    // Note (30.10): cp-amm's on-chain IDL has since joined idl/sememe-store, so the program
+    // IS described by a shipped IDL now. The control still fails — as a case-different name
+    // (`SWAP` vs the IDL's `swap`) instead of an unresolvable label — and the mutation is
+    // unchanged; only the reason acceptance reports for it moved.
     mutate: (s) => relabelInner(s, 4, 3, "SWAP on cpam…1sGG"),
   },
 ];
