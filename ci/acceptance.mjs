@@ -2,7 +2,7 @@
 /**
  * ci/acceptance.mjs — the CI verdict for Transaction Remix.
  *
- * The README claims six things. This script is the executable form of exactly those
+ * The README claims seven things. This script is the executable form of exactly those
  * claims, and nothing else:
  *
  *   1. Every shipped IDL file in idl/multi actually binds something.
@@ -66,6 +66,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { unusableIdlFiles } from "../src/idl-bitquery.mjs";
 import { sememeStatus, WHIRLPOOL_PROGRAM } from "../src/sememe-idl.mjs";
+import { buildStoredResolver } from "../src/dispatch.mjs";
+import { parseInnerBytes } from "../src/remix.mjs";
 
 // Whether the second decoder is reachable on this machine. Resolved once, before the
 // recipe loop, so the SKIP verdict below can tell "nothing to verify with" (documented,
@@ -80,6 +82,17 @@ const NEGATIVES = path.join(ROOT, "src", "make-negatives.mjs");
 const RPC = process.env.SOLANA_RPC || "https://api.mainnet-beta.solana.com";
 const FETCH_RE = /cannot fetch source transaction|fetch failed|ECONNREFUSED|ECONNRESET|ENOTFOUND|429|502|503|504/i;
 const CODEC_RE = /but no generated codec found/;
+/**
+ * Anchor's event self-CPI tag, little-endian: anchor/lang/src/event.rs
+ * `EVENT_IX_TAG = 0x1d9acb512ea545e4`. An `emit_cpi!` payload is this tag (8 bytes)
+ * ++ the EVENT's own discriminator (8 bytes) ++ borsh fields.
+ *
+ * Kept as a literal here rather than imported from src/dispatch.mjs on purpose: this
+ * check is the independent witness for the resolver, and reading the wire constant from
+ * the module under test would let one wrong constant hide behind itself. It is
+ * cross-checked against sememe's own export below when a sememe checkout is reachable.
+ */
+const EVENT_IX_TAG = Buffer.from("e445a52e51cb9a1d", "hex");
 // A recipe that CAN be verified without the generated codecs: its arguments come from the
 // vendored on-chain IDL instead. Before the sememe migration this list was empty and the
 // flagship recipe reported SKIP in CI.
@@ -295,6 +308,179 @@ if (!sememeUsable) {
       note("FAIL-AS-DECLARED  tampered store object on the multi-program path — reported, not fallen back from");
     }
     fs.rmSync(path.dirname(tampered), { recursive: true, force: true });
+  }
+}
+
+// 6. Every Anchor event self-CPI payload in out/ must be named exactly when an event
+//    table in this tree declares its discriminator — from an INDEPENDENT event table.
+//
+//    Why independent: checks 0b/5 inside verify-recipe re-derive labels through the
+//    SAME resolver the emitter wrote them from. That catches a stale recipe, but not a
+//    resolver that is blind in both directions (it would agree with its own `(unknown)`
+//    labels). This section builds the event table by reading the IDL JSON files
+//    directly — bytes 8..16 of the payload, never bytes 0..8 — so the resolver has
+//    something outside itself to be wrong against. The lookup offset matters: keying on
+//    bytes 0..8 finds the constant tag, never the event, and reports zero events on a
+//    payload set that is more than half events (the exact defect sememe's vendored-drift
+//    tool shipped with, fixed in sememe 512d67e).
+//
+//    The two directions are both failures: an event the tree CAN name but the recipe
+//    says `(unknown)` (the defect this section was written for), and a label for an
+//    event no IDL in this tree declares (a name the bytes cannot support).
+note("\n== 6. Anchor event self-CPIs: named when an IDL in this tree declares them ==");
+{
+  const tables = new Map(); // program address -> Map<hex8 of disc, { name, source }>
+  const noteEvent = (program, events, source) => {
+    if (!Array.isArray(events) || events.length === 0) return;
+    let table = tables.get(program);
+    if (!table) tables.set(program, (table = new Map()));
+    for (const ev of events) {
+      if (!Array.isArray(ev?.discriminator) || ev.discriminator.length < 8) continue;
+      const key = Buffer.from(ev.discriminator.slice(0, 8)).toString("hex");
+      const prev = table.get(key);
+      if (prev && prev.name !== ev.name) {
+        note(`  note: ${program} event disc ${key}: ${prev.name} (${prev.source}) vs ${ev.name} (${source})`);
+      } else if (!prev) {
+        table.set(key, { name: ev.name, source });
+      }
+    }
+  };
+  const readJson = (file) => {
+    try {
+      return JSON.parse(fs.readFileSync(file, "utf8"));
+    } catch {
+      return null;
+    }
+  };
+  // Vendored copies first, then the stored on-chain artifacts (they win, as in dispatch).
+  {
+    const stack = [MULTI_IDL];
+    while (stack.length) {
+      const dir = stack.pop();
+      if (!fs.existsSync(dir)) continue;
+      for (const entry of fs.readdirSync(dir)) {
+        const full = path.join(dir, entry);
+        if (fs.statSync(full).isDirectory()) stack.push(full);
+        else if (entry.endsWith(".json")) {
+          const j = readJson(full);
+          const address = j?.address ?? j?.metadata?.address;
+          if (address) noteEvent(address, j.events, `idl/multi/${path.relative(MULTI_IDL, full)}`);
+        }
+      }
+    }
+  }
+  const receiptsDir = path.join(ROOT, "idl", "sememe-store", "receipts");
+  if (fs.existsSync(receiptsDir)) {
+    for (const receiptName of fs.readdirSync(receiptsDir)) {
+      if (!receiptName.endsWith(".json")) continue;
+      const receipt = readJson(path.join(receiptsDir, receiptName));
+      const claimed = String(receipt?.fingerprint ?? "").replace(/^sha256:/, "");
+      if (!/^[a-f0-9]{64}$/.test(claimed)) continue;
+      const object = readJson(path.join(ROOT, "idl", "sememe-store", "objects", `${claimed}.json`));
+      if (object?.address) noteEvent(object.address, object.events, `idl/sememe-store/${receiptName}`);
+    }
+  }
+
+  // The wire constant, cross-checked against sememe's own export when it is reachable.
+  if (sememeUsable) {
+    try {
+      const { sememeSourceDir } = await import("../src/sememe-idl.mjs");
+      const codecUrl = new URL(`file://${path.join(sememeSourceDir(), "src", "codec.mjs")}`);
+      const codec = await import(codecUrl.href);
+      if (codec.EVENT_IX_TAG_HEX !== EVENT_IX_TAG.toString("hex")) {
+        flag(
+          `event self-CPI tag disagrees with sememe: this file ${EVENT_IX_TAG.toString("hex")}, ` +
+            `sememe codec ${codec.EVENT_IX_TAG_HEX} — one of the two readers is looking at the wrong constant`,
+        );
+      } else {
+        note(`OK  event self-CPI tag ${EVENT_IX_TAG.toString("hex")} agrees with sememe's codec export`);
+      }
+    } catch (error) {
+      note(`  note: could not cross-check the event tag against sememe (${error.message})`);
+    }
+  }
+
+  const labelName = (label) => {
+    const base = label.replace(/ on \S+…\S+$/, "").trim();
+    return base === "(unknown)" ? null : base;
+  };
+  const recipeEntries = (src) => {
+    const out = [];
+    const start = src.indexOf("export const INSTRUCTION_BYTES = {");
+    const end = src.indexOf("} as const;", start);
+    if (start >= 0) {
+      for (const m of src.slice(start, end).matchAll(
+        /\/\*\*\s*([^*]+?)\s*\*\/\s*(\d+):\s*\{([\s\S]*?)\n  \},?/g,
+      )) {
+        const body = m[3];
+        const program = body.match(/program:\s*"([^"]+)"/)?.[1];
+        const data = body.match(/data:\s*"([^"]+)"/)?.[1];
+        if (!program || !data) continue;
+        out.push({ where: `ix ${m[2]}`, label: m[1].trim(), program, data: Buffer.from(data, "base64") });
+      }
+    }
+    for (const inner of parseInnerBytes(src)) {
+      out.push({
+        where: `cpi [${inner.parentIx}][${inner.innerIx}]`,
+        label: inner.label,
+        program: inner.program,
+        data: inner.data,
+      });
+    }
+    return out;
+  };
+
+  const { nameFor: resolver } = await buildStoredResolver();
+  const recipeFiles = fs.readdirSync(path.join(ROOT, "out")).filter((f) => f.endsWith(".ts")).sort();
+  let eventPayloads = 0;
+  let namedFromIdl = 0;
+  let honestlyUnknown = 0;
+  for (const file of recipeFiles) {
+    const src = fs.readFileSync(path.join(ROOT, "out", file), "utf8");
+    for (const entry of recipeEntries(src)) {
+      if (entry.data.length < 16 || Buffer.compare(entry.data.subarray(0, 8), EVENT_IX_TAG) !== 0) continue;
+      eventPayloads++;
+      const disc = entry.data.subarray(8, 16).toString("hex");
+      const declared = tables.get(entry.program)?.get(disc) ?? null;
+      const resolved = resolver(entry.program, entry.data);
+      const label = labelName(entry.label);
+      if (declared) {
+        const want = `event:${declared.name}`;
+        if (!resolved || resolved.name !== want) {
+          flag(
+            `out/${file} ${entry.where}: event disc ${disc} on ${entry.program} is declared as ` +
+              `${declared.name} (${declared.source}), but the resolver says ` +
+              `${resolved ? resolved.name : "(nothing)"}`,
+          );
+        }
+        if (label !== want) {
+          flag(
+            `out/${file} ${entry.where}: event disc ${disc} on ${entry.program} is declared as ` +
+              `${declared.name}, recipe labels it ${label ?? "(unknown)"}`,
+          );
+        }
+        namedFromIdl++;
+      } else {
+        if (label !== null) {
+          flag(
+            `out/${file} ${entry.where}: labelled ${label}, but no IDL in this tree declares ` +
+              `event disc ${disc} for ${entry.program}`,
+          );
+        }
+        honestlyUnknown++;
+      }
+    }
+  }
+  if (eventPayloads === 0) {
+    flag(
+      "no Anchor event self-CPI payload found in out/ — this check found nothing to test, " +
+        "so it proves nothing either way",
+    );
+  } else {
+    note(
+      `OK  ${eventPayloads} event self-CPI payload(s) in out/: ${namedFromIdl} named from a declared ` +
+        `event, ${honestlyUnknown} honestly (unknown) (no IDL in this tree declares them)`,
+    );
   }
 }
 

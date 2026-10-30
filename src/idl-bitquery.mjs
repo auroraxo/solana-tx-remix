@@ -24,6 +24,13 @@ import { decodeNative } from "./native.mjs";
 const ANCHOR_DISC_SIZE = 8;
 
 /**
+ * Anchor event self-CPI tag, little-endian: anchor/lang/src/event.rs
+ * EVENT_IX_TAG = 0x1d9acb512ea545e4.
+ */
+export const EVENT_IX_TAG = Buffer.from("e445a52e51cb9a1d", "hex");
+export const EVENT_IX_TAG_HEX = "e445a52e51cb9a1d";
+
+/**
  * bitquery's shank-origin IDLs declare the program address in two places, and which one
  * they use is per file: `spl_token_2022.json` carries Token-2022 under `metadata.address`
  * but carries the classic SPL Token program nowhere at all. The numbering of the original
@@ -55,6 +62,7 @@ const PROGRAM_NAME_ALIASES = {
 };
 
 /** Parse one bitquery IDL JSON into { addresses, instructions:[{name, scheme, tag, entry}] }. */
+/** Parse one bitquery IDL JSON into { addresses, programName, instructions, events }. */
 export function parseIdlJson(file) {
   const raw = fs.readFileSync(file, "utf8");
   const j = JSON.parse(raw);
@@ -102,7 +110,20 @@ export function parseIdlJson(file) {
     // No discriminator AND no discriminant: skip — a name guessed from position alone
     // would be a label, not a decode.
   }
-  return { addresses: deduped, programName, instructions };
+  const events = [];
+  for (const ev of j.events ?? []) {
+    if (Array.isArray(ev.discriminator) && ev.discriminator.length >= ANCHOR_DISC_SIZE) {
+      events.push({
+        name: ev.name,
+        snake: ev.name.toLowerCase(),
+        file,
+        programName,
+        scheme: "event",
+        tag: Buffer.from(ev.discriminator.slice(0, ANCHOR_DISC_SIZE)),
+      });
+    }
+  }
+  return { addresses: deduped, programName, instructions, events };
 }
 
 /**
@@ -142,7 +163,7 @@ export function loadProgramDispatch(dir) {
   const ensure = (address) => {
     let p = byProgram.get(address);
     if (!p) {
-      p = { anchor: new Map(), tag: new Map(), sources: new Set() };
+      p = { anchor: new Map(), tag: new Map(), event: new Map(), sources: new Set() };
       byProgram.set(address, p);
     }
     return p;
@@ -173,6 +194,9 @@ export function loadProgramDispatch(dir) {
       for (const ix of parsed.instructions) {
         if (ix.scheme === "anchor") p.anchor.set(ix.tag.toString("hex"), ix);
         else p.tag.set(ix.tag.toString("hex"), ix);
+      }
+      for (const ev of parsed.events ?? []) {
+        p.event.set(ev.tag.toString("hex"), ev);
       }
     }
   }
@@ -210,12 +234,27 @@ export function makeNameResolver(byProgram, extraByProgram = new Map()) {
   return function nameFor(program, data) {
     const p = byProgram.get(program) ?? extraByProgram.get(program);
     if (!p) {
-      // Native Solana programs ship no usable discriminants in bitquery's IDL set:
-      // compute-budget declares an empty instruction list, system omits discriminants
-      // entirely. Their selector scheme is fixed per program and lives in native.mjs.
-      // Tried first because a known-width selector beats an absent table — and because
-      // reading either one with the other's width silently decodes nothing.
       return decodeNative(program, data);
+    }
+    // Anchor event self-CPI: tag (8) ++ event_discriminator (8) ++ borsh(body).
+    // Checked before instruction dispatch so that an emit_cpi! payload is never
+    // reported as "unknown instruction discriminator" when the program declares
+    // that event.
+    if (
+      data.length >= 16 &&
+      Buffer.compare(data.subarray(0, 8), EVENT_IX_TAG) === 0
+    ) {
+      const discHex = data.subarray(8, 16).toString("hex");
+      const evHit = p.event?.get(discHex);
+      if (evHit) {
+        return {
+          ...evHit,
+          name: "event:" + evHit.name,
+          rawEventName: evHit.name,
+          scheme: "event",
+          tagLen: 16,
+        };
+      }
     }
     if (data.length >= ANCHOR_DISC_SIZE) {
       const hit = p.anchor.get(data.subarray(0, ANCHOR_DISC_SIZE).toString("hex"));

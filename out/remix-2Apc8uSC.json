@@ -826,9 +826,9 @@
         {
           "program": "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
           "isTarget": false,
-          "name": null,
-          "discriminator": "e445a52e51cb9a1d",
-          "argBytes": 460,
+          "name": "event:SwapsEvent",
+          "discriminator": "e445a52e51cb9a1d982f4eebc0606e6a",
+          "argBytes": 452,
           "accountCount": 1,
           "accountsResolved": [
             "D8cy77BBepLMngZx6ZukaTff5hCt1HrWyKk3Hnd9oitf"

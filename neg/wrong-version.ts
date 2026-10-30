@@ -113,7 +113,7 @@ export const INNER_BYTES = {
     accounts: [6, 7, 4],
     data: "A9SWmPQAAAAA",
   },
-  /** (unknown) on DF1o…7QBH */
+  /** event:SwapEvent on DF1o…7QBH */
   [2][3]: {
     program: "DF1ow4tspfHX9JwWJsAb9epbkA8hmpSEAtxXy1V27QBH",
     accounts: [15],

@@ -34,7 +34,7 @@ No private key, no wallet, no signing is involved at any point.
 ## Continuous integration
 
 `node ci/acceptance.mjs` is the whole verdict, and GitHub Actions runs it on every push
-(`.github/workflows/acceptance.yml`). It asserts six things, each of which can fail:
+(`.github/workflows/acceptance.yml`). It asserts seven things, each of which can fail:
 
 1. **Every shipped IDL in `idl/multi/` binds a program** — the loader reports any file it
    cannot use, rather than dropping it silently. This is the check that was missing when
@@ -75,6 +75,25 @@ No private key, no wallet, no signing is involved at any point.
    digest), and requires the flagship recipe to fail with "does not verify". Re-disabling
    the fix makes this check fail loudly; a machine with no intact store to tamper with
    reports `SKIP` rather than a finding.
+
+7. **Every Anchor event self-CPI is named whenever an IDL in this tree declares the
+   event.** An Anchor `emit_cpi!` payload is the constant `EVENT_IX_TAG`
+   (`e445a52e51cb9a1d`, little-endian) followed by the EVENT's own 8-byte
+   discriminator and then the borsh body — so it is not any instruction of the emitting
+   program, and a resolver that only knows instruction discriminators answers
+   `(unknown)` for it. That is not a cosmetic gap: the same stored IDL file already in
+   this tree declares `SwapEvent` and `SwapsEvent` under exactly those bytes, and the
+   shipped recipes printed `(unknown)` for them while every other assertion reported
+   PASS, because a name nobody can check is indistinguishable from a correct name.
+   The check builds its event table by reading the IDL JSON files **directly** — the
+   discriminator at bytes `8..16`, never bytes `0..8` — so it is a witness independent
+   of the resolver under test, and it fails in both directions: an event the tree can name
+   but the recipe calls `(unknown)`, and a label for an event no IDL declares. Two
+   controls hold it in place: `neg/event-name-withheld` (the label deleted) and
+   `neg/event-name-wrong` (the label replaced with an instruction name). The wire
+   constant is cross-checked against sememe's own codec export, because the same
+   off-by-eight lookup mistake once shipped inside sememe's vendored-drift tool and
+   reported zero events on a payload set that was more than half events.
 
 The same script runs in CI and by hand, so a green badge and a local run are the same
 claim. The `no control may go unjudged` step fails the build if the control table and the

@@ -4,6 +4,7 @@
  * source signature : 2Apc8uSCCYaqaaF2fBYwK5KfE1nNBab28dTTCmzGEN1S1Tpz6ZXbreWrPzMGN4vw33mo9yAsoJw7KC77T9XsnAyn
  * slot / blockTime : 459696209 / 2026-10-21T16:26:51.000Z
  * message version  : v1
+ * interface source : stored IDL sha256:0b886e375b112206a846a061f076f7db02a4b01b25cd593cd03caa490d86660f
  * fee payer        : D15HDjPCaGjnrCmeCyhsZAXDnYx2fSdQEQdyEahceofz
  *
  * This file is generated, then meant to be edited. Verification:
@@ -316,7 +317,7 @@ export const INNER_BYTES = {
     accounts: [24, 40, 1, 24],
     data: "DG5eAAAAAAAABg==",
   },
-  /** (unknown) on JUP6…TaV4 */
+  /** event:SwapsEvent on JUP6…TaV4 */
   [4][21]: {
     program: "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
     accounts: [56],

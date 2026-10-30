@@ -176,10 +176,10 @@
         {
           "program": "DF1ow4tspfHX9JwWJsAb9epbkA8hmpSEAtxXy1V27QBH",
           "isTarget": false,
-          "name": null,
-          "discriminator": "e445a52e51cb9a1d",
-          "tagLen": 8,
-          "argBytes": 120,
+          "name": "event:SwapEvent",
+          "discriminator": "e445a52e51cb9a1d40c6cde8260871e2",
+          "tagLen": 16,
+          "argBytes": 112,
           "accountCount": 1,
           "accountsResolved": [
             "8xeaWCsJYxRoudEZGJWURdfrtFhLYZz9b4iHJnW5tb3d"

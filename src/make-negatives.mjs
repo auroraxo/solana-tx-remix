@@ -258,6 +258,30 @@ const specs = [
   },
   {
     from: "remix-multi-4HZWSH28.ts",
+    to: "event-name-withheld.ts",
+    why: "one Anchor event self-CPI label deleted to `(unknown)` while its IDL declares the event",
+    // The defect this repository shipped, as a permanent control: an emit_cpi! payload is
+    // EVENT_IX_TAG ++ event_discriminator ++ body, so the emitter's instruction table has
+    // no match for bytes 0..8 and it writes `(unknown)` — while the very same stored IDL
+    // file it already loaded declares `SwapEvent` under those exact 8 bytes at offset 8.
+    // The mutation is what the old emitter did on its own: blank the label and acceptance
+    // must fail on the recipe's own names, which is what makes the event table in
+    // dispatch.mjs a falsifiable claim rather than an assertion.
+    mutate: (s) => unlabelInner(s, 2, 3),
+  },
+  {
+    from: "remix-multi-4HZWSH28.ts",
+    to: "event-name-wrong.ts",
+    why: "an event self-CPI relabelled as an instruction of the emitting program",
+    // The opposite direction: a label can be wrong and still look like a name, so it has
+    // to be the name the bytes support. An event payload can never be a `swap`: no
+    // instruction discriminator of this program can occupy offset 0 here, because the
+    // constant EVENT_IX_TAG does. Bytes untouched, label false — and unlike
+    // idl-name-swap2 this one must fail against the EVENT table, not the instruction one.
+    mutate: (s) => relabelInner(s, 2, 3, "swap on DF1o…7QBH"),
+  },
+  {
+    from: "remix-multi-4HZWSH28.ts",
     to: "wrong-version.ts",
     why: "message version mislabelled `legacy` while every instruction byte is correct",
     // This is the mutation the tool actually shipped. RECIPE_VERSION was written by both

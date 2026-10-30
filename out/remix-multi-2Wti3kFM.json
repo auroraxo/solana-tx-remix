@@ -287,10 +287,10 @@
         {
           "program": "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
           "isTarget": false,
-          "name": null,
-          "discriminator": "e445a52e51cb9a1d",
-          "tagLen": 8,
-          "argBytes": 236,
+          "name": "event:SwapsEvent",
+          "discriminator": "e445a52e51cb9a1d982f4eebc0606e6a",
+          "tagLen": 16,
+          "argBytes": 228,
           "accountCount": 1,
           "accountsResolved": [
             "D8cy77BBepLMngZx6ZukaTff5hCt1HrWyKk3Hnd9oitf"

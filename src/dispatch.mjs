@@ -128,6 +128,10 @@ export async function buildStoredResolver({ multiIdlDir, genIdlDir, genIdlMap } 
     const merged = {
       anchor: new Map(existing.anchor),
       tag: new Map(existing.tag),
+      // Events live in the SAME merged structure as instructions, for the same reason
+      // instructions do: an overlay consulted only on a miss would let a vendored event
+      // name shadow the stored one on the exact discriminators where they disagree.
+      event: new Map(existing.event ?? []),
       sources: new Set([...existing.sources, ...stored.sources]),
     };
     for (const [disc, entry] of stored.anchor) {
@@ -144,6 +148,13 @@ export async function buildStoredResolver({ multiIdlDir, genIdlDir, genIdlMap } 
       }
       merged.tag.set(disc, entry);
     }
+    for (const [disc, entry] of stored.event ?? []) {
+      const mine = merged.event.get(disc);
+      if (mine && mine.name !== entry.name) {
+        conflicts.push({ program: address, kind: "event", discriminator: disc, vendored: mine.name, stored: entry.name });
+      }
+      merged.event.set(disc, entry);
+    }
     byProgram.set(address, merged);
   }
 
@@ -158,7 +169,7 @@ export async function buildStoredResolver({ multiIdlDir, genIdlDir, genIdlMap } 
     }
   }
   if (generated.size > 0) {
-    const p = { anchor: new Map(), tag: new Map(), sources: new Set(["stored IDL"]) };
+    const p = { anchor: new Map(), tag: new Map(), event: new Map(), sources: new Set(["stored IDL"]) };
     for (const [k, v] of generated) p.anchor.set(k, { ...v, scheme: "anchor", tagLen: 8, args: [] });
     anchorExtra.set(GENERATED_IDL_PROGRAM, p);
   }

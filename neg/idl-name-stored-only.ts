@@ -168,7 +168,7 @@ export const INNER_BYTES = {
     accounts: [11, 26, 16, 22],
     data: "DEx6jwUAAAAABg==",
   },
-  /** (unknown) on JUP6…TaV4 */
+  /** event:SwapsEvent on JUP6…TaV4 */
   [1][7]: {
     program: "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4",
     accounts: [25],

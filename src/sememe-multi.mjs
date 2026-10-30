@@ -224,6 +224,25 @@ export async function loadStoredProgramTables() {
     }
     const anchor = new Map();
     const tag = new Map();
+    // The EVENT table. An Anchor emit_cpi! payload is EVENT_IX_TAG ++ this event's own
+    // discriminator ++ borsh body, so it is not any instruction of the emitting program —
+    // reading it as one yields "unknown instruction" on a payload the IDL right here
+    // describes. Loaded from the same stored artifact as the instruction table, so an
+    // event name carries the same provenance (object fingerprint + receipt) as a
+    // instruction name: one artifact, one trust boundary.
+    const event = new Map();
+    for (const item of idl.events ?? []) {
+      if (!Array.isArray(item.discriminator) || item.discriminator.length < 8) continue;
+      const bytes = Buffer.from(item.discriminator);
+      event.set(bytes.subarray(0, 8).toString("hex"), {
+        name: String(item.name),
+        snake: String(item.name).toLowerCase(),
+        file: loaded.object,
+        programName: program,
+        args: (item.fields ?? item.args ?? []).map((a) => ({ name: a.name, type: a.type })),
+        source: "stored IDL",
+      });
+    }
     for (const instruction of idl.instructions ?? []) {
       if (!Array.isArray(instruction.discriminator) || instruction.discriminator.length === 0) continue;
       const bytes = Buffer.from(instruction.discriminator);
@@ -249,6 +268,7 @@ export async function loadStoredProgramTables() {
     tables.set(address, {
       anchor,
       tag,
+      event,
       sources: new Set([loaded.object]),
       fingerprint: loaded.fingerprint,
       receipt: loaded.receipt,
