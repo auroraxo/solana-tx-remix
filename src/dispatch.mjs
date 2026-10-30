@@ -109,12 +109,18 @@ export async function buildStoredResolver({ multiIdlDir, genIdlDir, genIdlMap } 
   const byProgram = loadProgramDispatch(multiIdlDir ?? defaultMultiIdlDir());
   const { tables, problems, conflicts: derivedConflicts } = await loadStoredProgramTables();
 
-  const storedExtra = new Map();
   const conflicts = [];
   for (const [address, stored] of tables) {
     const existing = byProgram.get(address);
     if (!existing) {
-      storedExtra.set(address, stored);
+      // Merged into the PRIMARY table, not into an extras layer consulted only on a miss.
+      // CI caught the difference: out/remix-multi-2Wti3kFM.ts was emitted on a machine
+      // WITH the generated Whirlpool codec directory and labelled its Whirlpool CPI
+      // `SWAP_V2`; the same recipe in CI, with no generated directory, resolved
+      // `swap_v2` from the stored artifact and failed its own label check. A label must
+      // not depend on which machine emitted it, so the stored artifact wins
+      // unconditionally and the generated layer below stays the fallback it always was.
+      byProgram.set(address, stored);
       continue;
     }
     // The vendored copy already binds this program. Merge: the stored copy fills gaps
@@ -157,7 +163,7 @@ export async function buildStoredResolver({ multiIdlDir, genIdlDir, genIdlMap } 
     anchorExtra.set(GENERATED_IDL_PROGRAM, p);
   }
   return {
-    nameFor: makeNameResolver(byProgram, new Map([...storedExtra, ...anchorExtra])),
+    nameFor: makeNameResolver(byProgram, anchorExtra),
     stored: { programs: [...tables.keys()], tables },
     problems,
     conflicts: [...derivedConflicts, ...conflicts],

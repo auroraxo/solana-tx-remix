@@ -170,7 +170,7 @@
         {
           "program": "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc",
           "isTarget": false,
-          "name": "SWAP_V2",
+          "name": "swap_v2",
           "discriminator": "2b04ed0b1ac91e62",
           "tagLen": 8,
           "argBytes": 35,

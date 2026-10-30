@@ -132,7 +132,7 @@ export const INNER_BYTES = {
     accounts: [10, 13, 1],
     data: "A1NS1XwFAAAA",
   },
-  /** SWAP_V2 on whir…tyCc */
+  /** swap_v2 on whir…tyCc */
   [1][1]: {
     program: "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc",
     accounts: [35, 35, 31, 27, 6, 32, 28, 17, 3, 13, 12, 19, 14, 2, 8],
