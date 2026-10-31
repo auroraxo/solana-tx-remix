@@ -360,6 +360,41 @@ const specs = [
     // unchanged; only the reason acceptance reports for it moved.
     mutate: (s) => relabelInner(s, 4, 3, "SWAP on cpam…1sGG"),
   },
+  {
+    from: "remix-multi-2Wti3kFM.ts",
+    to: "param-value-flip.ts",
+    why: "one editable constant changed (slippage_bps 400 -> 401) - the wire bytes untouched",
+    // The control for the claim the README makes first: "a plain TypeScript file" a
+    // developer edits. Until 31.10. NOTHING compared the emitted constants with the
+    // bytes above which they sit - byte-identity compares INSTRUCTION_BYTES with the
+    // chain, which this mutation does not touch, so the edited recipe VERIFIED GREEN and
+    // rebuilt to a different swap than the one it claims to reproduce.
+    //
+    // The verifier now re-encodes the recipe's own constants through the program's stored
+    // interface and requires byte equality with INSTRUCTION_BYTES (src/params.mjs). This
+    // control pins that check: if the re-encode silently stops running, or a value is
+    // trusted instead of re-encoded, neg/param-value-flip.ts passes and acceptance goes red.
+    mutate: (s) =>
+      s.replace(
+        "IX1_SHARED_ACCOUNTS_ROUTE_V2_SLIPPAGE_BPS = 400;",
+        "IX1_SHARED_ACCOUNTS_ROUTE_V2_SLIPPAGE_BPS = 401;",
+      ),
+  },
+  {
+    from: "remix-multi-2Wti3kFM.ts",
+    to: "param-field-renamed.ts",
+    why: "a constant renamed to a field shared_accounts_route_v2 does not declare",
+    // The other direction of the same check: a constant that answers to nothing. A
+    // renamed field can no longer be re-encoded (the encoder refuses an unknown argument),
+    // and the verifier reports it as naming a field the interface does not declare -
+    // rather than skipping a name it happens not to recognise, which would let a typo
+    // quietly opt out of the check.
+    mutate: (s) =>
+      s.replace(
+        "IX1_SHARED_ACCOUNTS_ROUTE_V2_SLIPPAGE_BPS",
+        "IX1_SHARED_ACCOUNTS_ROUTE_V2_SLIPPAGE_PERCENT",
+      ),
+  },
 ];
 
 for (const spec of specs) {

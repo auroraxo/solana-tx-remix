@@ -34,7 +34,7 @@ No private key, no wallet, no signing is involved at any point.
 ## Continuous integration
 
 `node ci/acceptance.mjs` is the whole verdict, and GitHub Actions runs it on every push
-(`.github/workflows/acceptance.yml`). It asserts seven things, each of which can fail:
+(`.github/workflows/acceptance.yml`). It asserts eight things, each of which can fail:
 
 1. **Every shipped IDL in `idl/multi/` binds a program** — the loader reports any file it
    cannot use, rather than dropping it silently. This is the check that was missing when
@@ -96,6 +96,27 @@ No private key, no wallet, no signing is involved at any point.
    off-by-eight lookup mistake once shipped inside sememe's vendored-drift tool and
    reported zero events on a payload set that was more than half events.
 
+8. **The recipe's editable constants ARE the bytes above them.** The README calls this
+   file "editable", and every emitter writes `export const IX<n>_<INSTRUCTION>_<FIELD>`
+   lines. Until 31.10. nothing compared them with the wire bytes: byte-identity compares
+   `INSTRUCTION_BYTES` with the chain, which editing a constant does not touch — so a
+   reader who changed an amount (the whole point of the file) got a recipe that still
+   verified green and rebuilt to something else. The verifier now re-encodes the recipe's
+   own constants through the program's own stored interface and requires byte equality
+   with `INSTRUCTION_BYTES`. It fails in all four directions: a changed value, a constant
+   renamed to a field the interface does not declare, a partial constant set (which cannot
+   rebuild its payload), and constants for an instruction the recipe no longer carries.
+   Two controls hold it in place: `neg/param-value-flip` (slippage 400 -> 401, bytes
+   untouched) and `neg/param-field-renamed` (a constant that answers to nothing).
+
+   The constants are also now emitted PER PROGRAM rather than looked up by name: the
+   multi-program emitter used to look a schema up in the Whirlpool generated directory by
+   instruction NAME, so every multi recipe in `out/` carried **zero** argument constants
+   (`shared_accounts_route_v2` is in no generated file) — three of four shipped recipes
+   were not editable at all. Arguments now come from the program that owns the
+   instruction, from its own fingerprint-verified on-chain IDL, and are withheld unless
+   they re-encode to the exact bytes they sit above.
+
 The same script runs in CI and by hand, so a green badge and a local run are the same
 claim. The `no control may go unjudged` step fails the build if the control table and the
 `neg/` directory ever disagree, so a control cannot quietly go untested.
@@ -129,7 +150,9 @@ in this repo, so it works on a fresh clone with no extra setup.
   transaction the instruction that matters is usually a CPI, and a recipe without them is
   a summary of the transaction rather than the transaction
 - instruction names resolved from the program's own generated IDL codecs
-- argument fields decoded into named constants (`IX6_SWAP_V2_AMOUNT = 1n`)
+- argument fields decoded into named constants (`IX6_SWAP_V2_AMOUNT = 1n`), from the
+  program that owns the instruction, and only written when they re-encode to the
+  exact bytes of the instruction they sit above
 - account roles named from the IDL (`WHIRLPOOL`, `TICKARRAY0`, `TOKENVAULTA`)
 - the flat address space: static keys plus lookup-table entries, in runtime order
 
@@ -219,7 +242,7 @@ otherwise; the table says where the boundary actually is.
 | instructions named, kit clients only | 17/24 — all 7 Whirlpool instructions stay **unnamed**, because `@solana-program/whirlpool` does not exist on npm | 24/24, zero dependencies |
 | instructions named, Orca's own client added | 24/24 (needs `@orca-so/whirlpools-client`) | 24/24 |
 | editable artifact | no — returns an in-memory object | yes — a plain TypeScript file |
-| acceptance check + negative controls | no | 7 checks, 12 generated controls |
+| acceptance check + negative controls | no | 8 checks, 25 generated controls |
 
 So: adopt the commodity layer for what it does (decoding, wire round-trip, native and SPL
 naming where a kit client exists), and keep the rest. Naming the **target** program is the

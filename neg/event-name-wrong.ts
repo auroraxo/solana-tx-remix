@@ -19,11 +19,18 @@
  */
 
 // ------------------------------------------------------ editable parameters
+// Argument constants are decoded from each program's own stored on-chain IDL
+// (or the native tables for System/ComputeBudget) and re-encoded to the exact
+// bytes below before they were written. Editing a constant here changes the
+// value; the verifier re-encodes it against INSTRUCTION_BYTES.
 
 /** ix 0: SetComputeUnitLimit on Comp…1111 (tagLen=1) — 0 accounts */
+export const IX0_SETCOMPUTEUNITLIMIT_UNITS = 93691n; // units — re-encodes to the chain bytes
 /** ix 1: set_token_ledger on JUP6…TaV4 (tagLen=8) — 2 accounts */
 /** ix 2: swap2 on DF1o…7QBH (tagLen=8) — 18 accounts */
+export const IX2_SWAP2_PARAMS = {"actions":[{"__kind":"BisonFiSwap","fields":[{"amount":"435000000","orchestrator_flags":{"flags":0}}]}],"quoted_out_amount":"1","slippage_bps":0,"platform_fee_bps":0,"positive_slippage_fee_limit_pct":0}; // params — re-encodes to the chain bytes
 /** ix 3: Transfer on 1111…1111 (tagLen=4) — 2 accounts */
+export const IX3_TRANSFER_LAMPORTS = 62500n; // lamports — re-encodes to the chain bytes
 
 // ---------------------------------------------------------------- transaction
 

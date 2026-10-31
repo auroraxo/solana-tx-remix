@@ -2,7 +2,7 @@
 /**
  * ci/acceptance.mjs — the CI verdict for Transaction Remix.
  *
- * The README claims seven things. This script is the executable form of exactly those
+ * The README claims eight things. This script is the executable form of exactly those
  * claims, and nothing else:
  *
  *   1. Every shipped IDL file in idl/multi actually binds something.
@@ -43,6 +43,19 @@
  *      use it, and then passed on the strength of the other decoder alone — a green run
  *      over a tampered artifact. The tampering is now performed deliberately here.
  *
+ *
+ *   7. Every Anchor event self-CPI in out/ is named whenever an IDL in this tree
+ *      declares the event, checked against a table this script builds by reading the IDL
+ *      files directly (discriminator at bytes 8..16) rather than the resolver under test.
+ *
+ *   8. The recipe's editable constants ARE the bytes they sit above. verify-recipe.mjs
+ *      re-encodes each instruction's own constant set through the program's stored
+ *      interface and requires byte equality with INSTRUCTION_BYTES; the controls
+ *      neg/param-value-flip (value changed, bytes untouched) and neg/param-field-renamed
+ *      (a constant naming a field the interface does not declare) pin both directions.
+ *      Before this the constants were emitted and never read: editing one — the point of
+ *      the file — verified green.
+ *
  * Run from the repository root:  node ci/acceptance.mjs
  *
  * Environment: no IDL_GEN_DIR, so no Whirlpool-generated codecs are present. That is the
@@ -50,6 +63,7 @@
  * failures are missing-codec failures is reported SKIP, not PASS and not FAIL — it is
  * unverifiable here rather than wrong. If someone sets IDL_GEN_DIR and the recipe then
  * fails for any other reason, that is a real FAIL.
+
  *
  * Since the sememe migration the flagship recipe is no longer in that category: its
  * arguments are decoded from the vendored, fingerprint-verified on-chain IDL

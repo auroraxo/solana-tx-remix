@@ -24,6 +24,7 @@ import {
   sememeStatus,
 } from "./sememe-idl.mjs";
 import { encodeNative, decodeNative, isNativeProgram, isNativeName, nativeProgramLabel } from "./native.mjs";
+import { decodeParams, encodeParams, parseRecipeParams, constantName } from "./params.mjs";
 import { buildStoredResolver, multiIdlDirPresent, multiIdlProgramCount } from "./dispatch.mjs";
 
 const recipePath = process.argv[2];
@@ -528,6 +529,137 @@ for (const ix of fromRecipe) {
 
 console.log(`on chain    : ${onChain.length} instructions, ${keys.length} static accounts`);
 console.log(`decoded     : ${decodedCount}/${fromRecipe.length} named instructions`);
+
+/**
+ * 2b. The recipe's OWN editable constants must be the bytes they sit next to.
+ *
+ * The README calls this file "editable", and every emitter writes `export const
+ * IX<n>_<INSTRUCTION>_<FIELD> = ...` lines above the wire bytes. NOTHING checked them
+ * against those bytes: byte-identity compares INSTRUCTION_BYTES with the chain, which is
+ * untouched by editing a constant. So the most likely edit a reader makes - change an
+ * amount, add slippage - could silently disagree with the payload the verifier calls
+ * "byte for byte". The recipe would verify green and rebuild to something else, or to
+ * nothing at all.
+ *
+ * The rule is claim-conditional, because absence of constants is not a false claim:
+ *
+ *   - No constants for an instruction -> nothing is claimed, no check (single-program
+ *     recipes only write constants for the target program's instructions).
+ *   - SOME constants for an instruction but not all of its fields -> failure: a partial
+ *     set cannot rebuild the payload, so the file promises an editability it cannot
+ *     deliver.
+ *   - A constant naming a field the bytes' own interface does not declare -> failure: the
+ *     constant answers to nothing.
+ *   - All constants present -> re-encode through the program's OWN stored interface
+ *     (native tables for System/ComputeBudget) and require byte equality with the
+ *     recipe's INSTRUCTION_BYTES entry - the same bytes byte-identity just compared to
+ *     the chain. The values ARE the bytes, or the recipe says so.
+ *
+ * Absence of the interface is a documented state (note, not failure - same rule as the
+ * SKIP path: a machine with no sememe checkout cannot fail a recipe for being
+ * unverifiable). A present-but-broken or contradicting interface is a failure: that is
+ * where a green run over a tampered artifact used to live.
+ */
+{
+  const declared = parseRecipeParams(src);
+  const byIndex = new Map();
+  for (const [name, value] of declared) {
+    const m = name.match(/^IX(\d+)_/);
+    if (!m) continue;
+    const index = Number(m[1]);
+    if (!byIndex.has(index)) byIndex.set(index, new Map());
+    byIndex.get(index).set(name, value);
+  }
+  // Constants for instructions this recipe no longer carries are claims about an absent
+  // transaction - the dropped-instruction control class.
+  for (const index of byIndex.keys()) {
+    if (!fromRecipe.some((ix) => ix.index === index)) {
+      failures.push(`constants IX${index}_* declare arguments for instruction ${index}, which is not in this recipe`);
+    }
+  }
+  let paramSets = 0;
+  let paramFields = 0;
+  for (const ix of fromRecipe) {
+    const declaredHere = byIndex.get(ix.index);
+    if (!declaredHere || declaredHere.size === 0) continue; // no claim -> no check
+    if (!ix.name) {
+      failures.push(
+        `ix ${ix.index}: declares argument constants but is labelled (unknown) - constants for an unnamed instruction cannot be checked against anything`,
+      );
+      continue;
+    }
+    const decoded = await decodeParams(ix.program, ix.data);
+    if (decoded.error || !decoded.args) {
+      if (decoded.reason === "absent") {
+        console.log(
+          `  ix ${ix.index} ${ix.name}: ${declaredHere.size} constant(s) not verified - ${decoded.error} (interface absent here, documented state)`,
+        );
+        continue;
+      }
+      failures.push(
+        `ix ${ix.index}: declares argument constants, but its program's own interface cannot decode these bytes ` +
+          `(${decoded.error}) - the constants contradict the bytes or the store is damaged`,
+      );
+      continue;
+    }
+    if (decoded.name.toUpperCase() !== ix.name.toUpperCase()) {
+      // The label check above already reports this; deriving constant names from a label
+      // the bytes contradict would pile "missing field" noise on top of the real failure.
+      continue;
+    }
+    const expected = new Map(); // constant name -> field name
+    for (const field of Object.keys(decoded.args)) {
+      if (field.startsWith("__")) continue;
+      expected.set(constantName(ix.index, ix.name, field), field);
+    }
+    const prefix = `IX${ix.index}_${String(ix.name).toUpperCase().replace(/[^A-Z0-9]+/g, "_")}_`;
+    const argConstants = [...declaredHere].filter(([name]) => name.startsWith(prefix));
+    if (argConstants.length === 0) continue; // only role/program constants - not a value claim
+    const unknown = argConstants.filter(([name]) => !expected.has(name)).map(([name]) => name);
+    if (unknown.length) {
+      failures.push(
+        `ix ${ix.index}: constant(s) ${unknown.join(", ")} name field(s) that ${ix.name} does not declare ` +
+          `(its interface has: ${[...expected.values()].join(", ")})`,
+      );
+      continue;
+    }
+    const args = {};
+    const missing = [];
+    for (const [name, field] of expected) {
+      if (declaredHere.has(name)) args[field] = declaredHere.get(name);
+      else missing.push(field);
+    }
+    if (missing.length) {
+      failures.push(
+        `ix ${ix.index}: partial constants for ${ix.name} - missing ${missing.join(", ")}; ` +
+          `an incomplete argument set cannot rebuild the payload it sits above`,
+      );
+      continue;
+    }
+    const rebuilt = await encodeParams(ix.program, decoded.name, args);
+    if (rebuilt.error || Buffer.compare(rebuilt.bytes, ix.data) !== 0) {
+      const at = rebuilt.bytes
+        ? [...rebuilt.bytes].findIndex((b, i) => ix.data[i] !== b)
+        : -1;
+      failures.push(
+        rebuilt.error
+          ? `ix ${ix.index}: constants of ${ix.name} cannot be re-encoded: ${rebuilt.error}`
+          : `ix ${ix.index}: constants of ${ix.name} re-encode to a different payload - ` +
+              `first difference at offset ${at} (constants ${rebuilt.bytes.subarray(Math.max(0, at - 4), at + 4).toString("hex")} vs ` +
+              `recipe ${ix.data.subarray(Math.max(0, at - 4), at + 4).toString("hex")})`,
+      );
+      continue;
+    }
+    paramSets++;
+    paramFields += Object.keys(args).length;
+    console.log(
+      `  ix ${ix.index} ${ix.name}: ${Object.keys(args).length} constant(s) re-encode to the chain bytes (${decoded.source})`,
+    );
+  }
+  console.log(
+    `constants   : ${paramSets} instruction set(s), ${paramFields} field(s) verified against INSTRUCTION_BYTES`,
+  );
+}
 if (sememeUsable) {
   console.log(
     `cross-check : ${crossChecked} instruction(s), ${crossFields} field(s) compared, ` +

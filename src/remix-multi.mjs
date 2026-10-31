@@ -27,7 +27,7 @@ import {
   renderInnerBytes,
   rpc,
 } from "./remix.mjs";
-import { decodeArgs, schemaForInstruction } from "./args.mjs";
+import { decodeParams, encodeParams, literalFor, parseLiteral, constantName } from "./params.mjs";
 import { loadProgramDispatch, makeNameResolver, parseIdlJson } from "./idl-bitquery.mjs";
 import { buildStoredResolver, defaultMultiIdlDir } from "./dispatch.mjs";
 
@@ -44,13 +44,10 @@ function flag(name, fallback) {
   return i >= 0 && args[i + 1] ? args[i + 1] : fallback;
 }
 const multiIdlDir = flag("--multi-idl", defaultMultiIdlDir());
-const genIdlDir = flag(
-  "--gen-idl",
-  path.resolve(
-    process.env.HOME,
-    "github_repos/orca-whirlpools-recon/ts-sdk/client/src/generated/instructions",
-  ),
-);
+// The generated codec directory is still consulted for INSTRUCTION NAMES (Whirlpool's
+// generated discriminators), but no longer for ARGUMENTS: those come from each
+// program's own stored on-chain IDL (src/params.mjs). `--gen-idl` stays a flag because
+// the resolver below still takes it.
 const outDir = flag("--out", path.resolve("out"));
 
 const tx = await fetchTransaction(signature);
@@ -123,7 +120,7 @@ const stem = `remix-multi-${recipe.signature.slice(0, 8)}`;
 const recipePath = path.join(outDir, `${stem}.ts`);
 const jsonPath = path.join(outDir, `${stem}.json`);
 const lines = recipeHeader(recipe);
-appendInstructionBlock(lines, recipe);
+await appendInstructionBlock(lines, recipe);
 appendAddressLines(lines, recipe);
 lines.push(`export const ADDRESS_SPACE_SIZE = ${recipe.addressSpaceSize};`);
 lines.push(``);
@@ -248,24 +245,72 @@ function recipeHeader(recipe) {
   ];
 }
 
-function appendInstructionBlock(lines, recipe) {
+/**
+ * Editable argument constants, decoded PER PROGRAM.
+ *
+ * The previous source was `schemaForInstruction(genIdlDir, ix.name)` — a lookup BY NAME in
+ * the Whirlpool generated directory. Consequences, measured on the committed recipes
+ * (2026-10-31): every multi recipe in out/ carried ZERO argument constants, because only
+ * Whirlpool names find a schema there (`shared_accounts_route_v2` exists in no generated
+ * file), and a Whirlpool-named instruction in a multi recipe would have been decoded
+ * against the Whirlpool schema even when the bytes belong to another program.
+ *
+ * The source is now the stored, fingerprint-verified on-chain IDL of the PROGRAM that
+ * owns the instruction (src/params.mjs) — the same provenance rule the labels already
+ * follow — and each instruction's decoded arguments are re-encoded and must reproduce
+ * its own bytes. Arguments that do not round-trip are NOT emitted as constants: an
+ * editable value that cannot rebuild its instruction is a guess with a TypeScript type.
+ * Native programs (System, ComputeBudget) decode from native.mjs under the same contract.
+ */
+async function appendInstructionBlock(lines, recipe) {
   lines.push(`// ------------------------------------------------------ editable parameters`);
+  lines.push(`// Argument constants are decoded from each program's own stored on-chain IDL`);
+  lines.push(`// (or the native tables for System/ComputeBudget) and re-encoded to the exact`);
+  lines.push(`// bytes below before they were written. Editing a constant here changes the`);
+  lines.push(`// value; the verifier re-encodes it against INSTRUCTION_BYTES.`);
   lines.push(``);
+  let constants = 0;
   for (const ix of recipe.instructions) {
     if (!ix.name) continue;
-    const schema = schemaForInstruction(genIdlDir, ix.name);
-    const decoded = decodeArgs(schema, ix.args);
-    lines.push(`/** ix ${ix.index}: ${ix.name} on ${shortAddr(ix.program)} (tagLen=${ix.tagLen ?? 8}) — ${ix.accountCount} accounts */`);
-    for (const [k, v] of Object.entries(decoded)) {
+    const data = Buffer.concat([Buffer.from(ix.discriminator, "hex"), ix.args]);
+    const decoded = await decodeParams(ix.program, data);
+    if (decoded.error && decoded.reason !== "absent") {
+      console.error(`ix ${ix.index} (${ix.name}): arguments not decoded — ${decoded.error}`);
+    }
+    if (!decoded.args) continue;
+    // Gate on the LITERALS, not the raw values: the file must re-encode from what is
+    // actually written into it (`123n`, JSON), because that is what the verifier will
+    // parse back. A value that round-trips as data but not as its literal would produce
+    // a recipe nobody can verify.
+    const literals = {};
+    const parsedBack = {};
+    let literalError = null;
+    for (const [k, v] of Object.entries(decoded.args)) {
       if (k.startsWith("__")) continue;
-      const label = k.toUpperCase();
-      if (v !== null && typeof v === "object") {
-        lines.push(`export const IX${ix.index}_${label} = ${JSON.stringify(v)};`);
-      } else if (typeof v === "boolean") lines.push(`export const IX${ix.index}_${label} = ${v};`);
-      else if (/^-?\d+$/.test(String(v))) lines.push(`export const IX${ix.index}_${label} = ${v}n;`);
-      else lines.push(`export const IX${ix.index}_${label} = ${JSON.stringify(v)};`);
+      const text = literalFor(v, { integer: decoded.integers?.has(k) ?? false }).text;
+      literals[k] = text;
+      parsedBack[k] = parseLiteral(text);
+      if (parsedBack[k] && typeof parsedBack[k] === "object" && "__unparsed" in parsedBack[k]) {
+        literalError = `argument ${k} has no parseable literal`;
+      }
+    }
+    if (!literalError) {
+      const re = await encodeParams(ix.program, decoded.name, parsedBack);
+      if (re.error || Buffer.compare(re.bytes, data) !== 0) {
+        literalError = re.error ?? "literals do not reproduce the payload";
+      }
+    }
+    if (literalError) {
+      console.error(`ix ${ix.index} (${ix.name}): constants withheld — ${literalError}`);
+      continue;
+    }
+    lines.push(`/** ix ${ix.index}: ${ix.name} on ${shortAddr(ix.program)} (tagLen=${ix.tagLen ?? 8}) — ${ix.accountCount} accounts */`);
+    for (const [k, text] of Object.entries(literals)) {
+      lines.push(`export const ${constantName(ix.index, ix.name, k)} = ${text}; // ${k} — re-encodes to the chain bytes`);
+      constants++;
     }
   }
+  if (constants === 0) lines.push(`// (no argument constants: no instruction in this transaction decoded byte-exactly)`);
   lines.push(``);
 }
 

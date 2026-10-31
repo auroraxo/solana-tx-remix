@@ -18,11 +18,19 @@
  */
 
 // ------------------------------------------------------ editable parameters
+// Argument constants are decoded from each program's own stored on-chain IDL
+// (or the native tables for System/ComputeBudget) and re-encoded to the exact
+// bytes below before they were written. Editing a constant here changes the
+// value; the verifier re-encodes it against INSTRUCTION_BYTES.
 
 /** ix 0: SetComputeUnitLimit on Comp…1111 (tagLen=1) — 0 accounts */
+export const IX0_SETCOMPUTEUNITLIMIT_UNITS = 849064n; // units — re-encodes to the chain bytes
 /** ix 1: SetComputeUnitPrice on Comp…1111 (tagLen=1) — 0 accounts */
+export const IX1_SETCOMPUTEUNITPRICE_MICRO_LAMPORTS = 1854697n; // micro_lamports — re-encodes to the chain bytes
 /** ix 2: Transfer on 1111…1111 (tagLen=4) — 2 accounts */
+export const IX2_TRANSFER_LAMPORTS = 7190n; // lamports — re-encodes to the chain bytes
 /** ix 3: RequestHeapFrame on Comp…1111 (tagLen=1) — 0 accounts */
+export const IX3_REQUESTHEAPFRAME_BYTES = 262144n; // bytes — re-encodes to the chain bytes
 
 // ---------------------------------------------------------------- transaction
 

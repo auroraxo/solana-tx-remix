@@ -18,13 +18,22 @@
  */
 
 // ------------------------------------------------------ editable parameters
+// Argument constants are decoded from each program's own stored on-chain IDL
+// (or the native tables for System/ComputeBudget) and re-encoded to the exact
+// bytes below before they were written. Editing a constant here changes the
+// value; the verifier re-encodes it against INSTRUCTION_BYTES.
 
 /** ix 0: create_idempotent_associated_token_account on JUP6…TaV4 (tagLen=8) — 8 accounts */
 /** ix 1: shared_accounts_route_v2 on JUP6…TaV4 (tagLen=8) — 43 accounts */
-/** ix 2: transferChecked on Toke…Q5DA (tagLen=1) — 4 accounts */
-/** ix 3: transferChecked on Toke…Q5DA (tagLen=1) — 4 accounts */
-/** ix 4: transferChecked on Toke…Q5DA (tagLen=1) — 4 accounts */
+export const IX1_SHARED_ACCOUNTS_ROUTE_V2_ID = 0; // id — re-encodes to the chain bytes
+export const IX1_SHARED_ACCOUNTS_ROUTE_V2_IN_AMOUNT = 23569191507n; // in_amount — re-encodes to the chain bytes
+export const IX1_SHARED_ACCOUNTS_ROUTE_V2_QUOTED_OUT_AMOUNT = 93289762n; // quoted_out_amount — re-encodes to the chain bytes
+export const IX1_SHARED_ACCOUNTS_ROUTE_V2_SLIPPAGE_BPS = 400; // slippage_bps — re-encodes to the chain bytes
+export const IX1_SHARED_ACCOUNTS_ROUTE_V2_PLATFORM_FEE_BPS = 0; // platform_fee_bps — re-encodes to the chain bytes
+export const IX1_SHARED_ACCOUNTS_ROUTE_V2_POSITIVE_SLIPPAGE_BPS = 0; // positive_slippage_bps — re-encodes to the chain bytes
+export const IX1_SHARED_ACCOUNTS_ROUTE_V2_ROUTE_PLAN = [{"swap":{"__kind":"WhirlpoolSwapV2","a_to_b":false,"remaining_accounts_info":{"__option":"None"}},"bps":10000,"input_index":0,"output_index":1},{"swap":{"__kind":"TesseraVV2","side":{"__kind":"Ask"}},"bps":10000,"input_index":1,"output_index":2}]; // route_plan — re-encodes to the chain bytes
 /** ix 5: Transfer on 1111…1111 (tagLen=4) — 3 accounts */
+export const IX5_TRANSFER_LAMPORTS = 0n; // lamports — re-encodes to the chain bytes
 
 // ---------------------------------------------------------------- transaction
 
