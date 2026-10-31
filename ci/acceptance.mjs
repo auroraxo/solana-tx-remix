@@ -56,6 +56,15 @@
  *      Before this the constants were emitted and never read: editing one — the point of
  *      the file — verified green.
  *
+ *   9. Native decoding is sememe's verified, DERIVED table rather than this repository's
+ *      old hand transcription. Section 7 measures the four defects the transcription had
+ *      on real committed traffic and requires every one of them to be gone: 63/63 seeded
+ *      creates named and byte-exact (hand table: 0/63), upstream variants 12/13 nameable
+ *      (hand table omitted both), ComputeBudget tag 0 refused per the runtime rule
+ *      (hand table named it), argument names in upstream vocabulary (hand table used
+ *      camelCase), and sememe's committed table equal to a fresh derivation of its
+ *      vendored upstream Rust, re-hashed at load.
+ *
  * Run from the repository root:  node ci/acceptance.mjs
  *
  * Environment: no IDL_GEN_DIR, so no Whirlpool-generated codecs are present. That is the
@@ -73,7 +82,7 @@
  * working, and check 3 below reports it as a failure rather than letting CI look green
  * over an unverified flagship.
  */
-import { spawnSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -81,6 +90,7 @@ import { fileURLToPath } from "node:url";
 import { unusableIdlFiles } from "../src/idl-bitquery.mjs";
 import { sememeStatus, WHIRLPOOL_PROGRAM } from "../src/sememe-idl.mjs";
 import { buildStoredResolver } from "../src/dispatch.mjs";
+import { decodeNative, encodeNative, nativeRefusal, nativeStatus } from "../src/native.mjs";
 import { parseInnerBytes } from "../src/remix.mjs";
 
 // Whether the second decoder is reachable on this machine. Resolved once, before the
@@ -508,6 +518,99 @@ note("\n== 6. Anchor event self-CPIs: named when an IDL in this tree declares th
       `OK  ${eventPayloads} event self-CPI payload(s) in out/: ${namedFromIdl} named from a declared ` +
         `event, ${honestlyUnknown} honestly (unknown) (no IDL in this tree declares them)`,
     );
+  }
+}
+
+// 7. Native decoding is sememe's verified, derived table, not this repo's old hand copy.
+//
+// Falsification first: each assertion in this section was run against the PRE-migration
+// tree (the hand-transcribed table this repository carried until now) and each one FAILED
+// there — 63/63 CreateAccountWithSeed payloads unnamed (u32 vs u64 seed header), upstream
+// variants 12/13 unknown, ComputeBudget tag 0 accepted as a name, camelCase argument names.
+// Against the migrated decoder every check passes. Restoring a hand table turns this
+// section red again; that is what makes it a check rather than a description.
+note("\n== 7. native decoding comes from sememe's verified, derived table ==");
+{
+  const status = nativeStatus();
+  if (!status.ok) {
+    flag(`native decoder unreachable — ${status.reason} (set SEMEME_DIR; CI checks the sibling repo out)`);
+  } else {
+    const SYSTEM = "11111111111111111111111111111111";
+    const COMPUTE_BUDGET = "ComputeBudget111111111111111111111111111111";
+
+    // 7a. The seeded create: the exact shape the hand table's u32 seed header could not
+    // name (0 of 63 in sememe's committed harvest). Every payload must decode with a
+    // readable seed and re-encode byte-identically.
+    const harvestPath = path.join(status.source, "test", "fixtures", "harvest-system-2026-10-31.json");
+    if (!fs.existsSync(harvestPath)) {
+      flag(`sememe's system harvest fixture is missing at ${harvestPath} — check 7a cannot run`);
+    } else {
+      let seeded = 0;
+      let seededExact = 0;
+      const harvest = JSON.parse(fs.readFileSync(harvestPath, "utf8"));
+      for (const transaction of harvest.transactions ?? []) {
+        for (const p of transaction.payloads ?? []) {
+          if (!p.dataHex?.startsWith("03000000")) continue;
+          const bytes = Buffer.from(p.dataHex, "hex");
+          const decoded = decodeNative(SYSTEM, bytes);
+          if (!decoded) continue;
+          seeded += 1;
+          const rebuilt = decoded && encodeNative(SYSTEM, decoded.name, decoded.args);
+          if (decoded.name === "CreateAccountWithSeed" && /^[!-~]+$/.test(decoded.args.seed ?? "")
+            && rebuilt?.equals(bytes)) {
+            seededExact += 1;
+          }
+        }
+      }
+      if (seeded === 0) {
+        flag("no CreateAccountWithSeed payload found — check 7a found nothing to test, so it proves nothing");
+      } else if (seededExact !== seeded) {
+        flag(`seeded-create: ${seededExact}/${seeded} named with a readable seed and byte-exact re-encode (the hand table named 0/${seeded})`);
+      } else {
+        note(`OK  ${seeded}/${seeded} CreateAccountWithSeed payloads decode and re-encode byte-exactly (hand table: 0/${seeded})`);
+      }
+    }
+
+    // 7b. Upstream variants 12 and 13 are nameable — the two the hand table omitted.
+    // A synthetic encoding is used because live traffic may carry none; the claim is
+    // about the table, exercised through the same verified encoder it ships with.
+    const nonce = encodeNative(SYSTEM, "UpgradeNonceAccount", {});
+    const prefund = encodeNative(SYSTEM, "CreateAccountAllowPrefund", {
+      lamports: 1n, space: 165n, owner: SYSTEM,
+    });
+    const prefundDecoded = prefund && decodeNative(SYSTEM, prefund);
+    if (!nonce || nonce.toString("hex") !== "0c000000") {
+      flag(`System variant 12 (UpgradeNonceAccount) not nameable/encodable — the hand table omitted it: got ${nonce?.toString("hex") ?? "null"}`);
+    } else if (!prefundDecoded || prefundDecoded.name !== "CreateAccountAllowPrefund"
+      || !prefundDecoded.roundTripByteExact) {
+      flag("System variant 13 (CreateAccountAllowPrefund) not nameable/round-trippable — the hand table omitted it");
+    } else note("OK  System variants 12/13 (the two the hand table omitted) name, encode and round-trip");
+
+    // 7c. ComputeBudget tag 0 is REFUSED, not named: the runtime rejects Unused as
+    // InvalidInstructionData. The hand table named it — naming bytes the chain would
+    // not execute is the disagreement this migration removes.
+    const refusal = nativeRefusal(COMPUTE_BUDGET, Buffer.from([0x00, 0x40, 0x0d, 0x03, 0x00]));
+    if (refusal !== "wire-rejected") {
+      flag(`ComputeBudget tag 0 must be refused as wire-rejected (runtime rule), got: ${refusal ?? "a name"}`);
+    } else note("OK  ComputeBudget tag 0 (Unused) refused as wire-rejected — the runtime's verdict, not the SDK's encoder");
+
+    // 7d. Argument names carry upstream's own vocabulary, and the table is a fresh
+    // derivation of the vendored upstream Rust (re-hashed at load), not a typed copy.
+    const price = decodeNative(COMPUTE_BUDGET, Buffer.from([3, 0x40, 0x0d, 0x03, 0x00, 0, 0, 0, 0]));
+    if (price?.name !== "SetComputeUnitPrice" || !Object.hasOwn(price.args, "micro_lamports")) {
+      flag(`SetComputeUnitPrice must decode with upstream's arg name micro_lamports, got ${price ? JSON.stringify(Object.keys(price.args)) : "null"}`);
+    } else {
+      note("OK  argument names carry upstream vocabulary (micro_lamports; from_seed/from_owner are snake_case)");
+    }
+    try {
+      execFileSync(process.execPath, ["tools/native-interface.mjs", "--check"], { cwd: status.source, stdio: "pipe" });
+      note("OK  sememe's committed native table equals a fresh derivation of the vendored upstream Rust (hash-checked at load)");
+    } catch (error) {
+      flag(
+        "sememe's committed native table is not a fresh derivation of the vendored upstream Rust " +
+          `(${String(error.stderr ?? error.message).trim().split("\n").slice(-1)[0]})`,
+      );
+    }
   }
 }
 

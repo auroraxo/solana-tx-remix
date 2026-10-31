@@ -23,7 +23,7 @@ import {
   decodeWithSememe,
   sememeStatus,
 } from "./sememe-idl.mjs";
-import { encodeNative, decodeNative, isNativeProgram, isNativeName, nativeProgramLabel } from "./native.mjs";
+import { encodeNative, decodeNative, isNativeProgram, isNativeName, nativeProgramLabel, nativeStatus } from "./native.mjs";
 import { decodeParams, encodeParams, parseRecipeParams, constantName } from "./params.mjs";
 import { buildStoredResolver, multiIdlDirPresent, multiIdlProgramCount } from "./dispatch.mjs";
 
@@ -345,6 +345,18 @@ for (const ix of fromRecipe) {
     // from a different program, which is precisely the mislabel this guard exists to catch.
     const decodedArgs = decodeNative(ix.program, ix.data);
     if (!decodedArgs) {
+      // Distinguish "the bytes are refused" (a finding about the recipe) from "there is
+      // nothing to decode with" (a finding about the machine). The native decoder lives
+      // in sememe since the migration; a checkout without it cannot judge these bytes,
+      // and reporting that as a wrong recipe would be the same category error the
+      // generated-codec SKIP path already avoids.
+      const status = nativeStatus();
+      if (!status.ok) {
+        failures.push(
+          `ix ${ix.index}: native decoder unavailable — ${status.reason} (instruction not verifiable here)`,
+        );
+        continue;
+      }
       failures.push(
         `ix ${ix.index}: claims ${ix.name} on ${ix.program}, but its bytes do not decode as any ${nativeProgramLabel(ix.program)} instruction`,
       );
