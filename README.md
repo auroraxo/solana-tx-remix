@@ -26,7 +26,7 @@ of the public `api.mainnet-beta.solana.com`.
 
 The single-program emitter reads the Whirlpool interface from `idl/sememe-store/` in this
 repo, so it needs no extra setup. It does need the `sememe` decoder package on the machine
-(`npm install --no-save github:auroraxo/sememe#v0.2.0` — one package, no dependencies of
+(`npm install --no-save github:auroraxo/sememe#v0.2.2` — one package, no dependencies of
 its own); with that absent it falls back to Codama-generated codecs via `--idl`/`IDL_GEN_DIR`.
 
 No private key, no wallet, no signing is involved at any point.
@@ -461,7 +461,7 @@ both sources when neither exists), while a store that is present and damaged exi
 rather than quietly becoming another source's names.
 
 The decoder itself is the `sememe` **package**, installed from its release tag
-(`npm install --no-save github:auroraxo/sememe#v0.2.0`) — the same route any outside user
+(`npm install --no-save github:auroraxo/sememe#v0.2.2`) — the same route any outside user
 takes. It is imported as a package, not vendored and not path-hacked into a sibling
 checkout, so the two sides cannot drift apart and the consumer needs no knowledge of where
 sememe lives on disk; its decode core has **no npm dependencies**, which is what makes

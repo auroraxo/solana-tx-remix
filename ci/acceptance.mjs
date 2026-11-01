@@ -126,6 +126,26 @@ const FETCH_ATTEMPTS = 3;
 const red = [];
 const note = (line) => console.log(line);
 
+// The release this repository qualifies against. The workflow installs exactly this tag;
+// the check below makes sure the installed package really announces it, so a tag that
+// moves (or a version field that lags the tag) is reported instead of silently passing
+// as "whatever was on main that day".
+const SEMEME_PIN = "0.2.2";
+{
+  const probe = spawnSync("node", ["-e", `
+    import('sememe/package.json', { with: { type: 'json' } })
+      .then((m) => console.log('V:' + m.default.version))
+      .catch((e) => console.log('V:unreadable:' + e.code));`, ], { cwd: ROOT, encoding: "utf8" });
+  const line = String(probe.stdout || "").trim();
+  if (line === `V:${SEMEME_PIN}`) {
+    note(`sememe pin  : sememe@${SEMEME_PIN} (the release this repository qualifies against)`);
+  } else if (line.startsWith("V:unreadable")) {
+    flag(`sememe package not installed or its package.json unreadable (${line.slice(2)}) — expected sememe@${SEMEME_PIN}`);
+  } else {
+    flag(`sememe pin mismatch: installed ${line.slice(2)} but this repository pins ${SEMEME_PIN} — reinstall with npm install --no-save github:auroraxo/sememe#v${SEMEME_PIN} or update the pin deliberately`);
+  }
+}
+
 // Which decoder state this run is in, printed once so a SKIP and a PASS can be compared
 // from the same log.
 note(sememeUsable

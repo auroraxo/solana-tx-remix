@@ -37,7 +37,7 @@
  */
 
 /** The install command the status message names, so absence has a one-line remedy. */
-export const SEMEME_INSTALL_HINT = "npm install --no-save github:auroraxo/sememe#v0.2.0";
+export const SEMEME_INSTALL_HINT = "npm install --no-save github:auroraxo/sememe#v0.2.2";
 
 let nativeModule = null;
 let loadError = null;

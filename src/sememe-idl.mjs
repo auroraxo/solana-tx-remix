@@ -22,7 +22,7 @@
  *
  * How sememe is found: as an npm package, installed from its git tag —
  *
- *   npm install --no-save github:auroraxo/sememe#v0.2.0
+ *   npm install --no-save github:auroraxo/sememe#v0.2.2
  *
  * (pinned to a release so a verifier's verdict stays reproducible). The `sememe/*` subpaths
  * are the package's declared exports, so this file no longer knows where sememe's checkout
@@ -51,7 +51,7 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 export const WHIRLPOOL_PROGRAM = "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc";
 
 /** The install command the error messages name, so absence has a one-line remedy. */
-export const SEMEME_INSTALL_HINT = "npm install --no-save github:auroraxo/sememe#v0.2.0";
+export const SEMEME_INSTALL_HINT = "npm install --no-save github:auroraxo/sememe#v0.2.2";
 
 /** The stored artifact: sememe's `<store>/objects/<fingerprint>.json` + `receipts/`. */
 export function sememeStoreDir() {

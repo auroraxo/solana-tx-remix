@@ -48,7 +48,7 @@ jobs:
           node-version: "24" # README: Node.js 24+
 
       - name: install sememe (the decoder, from its release tag)
-        run: npm install --no-save github:auroraxo/sememe#v0.2.0
+        run: npm install --no-save github:auroraxo/sememe#v0.2.2
 
       # No IDL_GEN_DIR and no SOLANA_RPC: this is exactly a fresh clone's environment.
       # src/verify-recipe.mjs re-fetches each transaction from the public mainnet RPC and
