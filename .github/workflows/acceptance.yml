@@ -32,25 +32,23 @@ jobs:
 
       # sememe's decoder: the second, independent opinion for single-program recipes.
       #
-      # Checked out from the sibling repository rather than vendored, because a copied
-      # decoder is a decoder that can drift from the store it claims to read — and the whole
-      # point of the cross-check is that the two sides are independent. Its decode core has
-      # NO npm dependencies (node builtins and its own files only), so no `npm ci` runs here:
-      # the checkout is imported directly. That property is enforced in sememe's own test
-      # suite, which is why this workflow can assume it.
+      # Installed from sememe's own git tag — the same route any outside user takes —
+      # rather than vendored or path-hacked, because a copied decoder is a decoder that
+      # can drift from the store it claims to read, and a checkout outside the repo is
+      # invisible to this workflow's history. Pinning the tag keeps the verdict
+      # reproducible; its decode core has NO npm dependencies (node builtins and its own
+      # files only), so the install brings exactly one package.
       #
       # The stored ARTIFACT (the IDL object plus its receipt) is vendored in-repo at
       # idl/sememe-store/, and its fingerprint is re-checked against the object's own bytes
       # before every decode. Without this step the flagship recipe falls back to the
       # generated-codec path and reports SKIP, exactly as before the migration.
-      - uses: actions/checkout@v4
-        with:
-          repository: auroraxo/sememe
-          path: sememe
-
       - uses: actions/setup-node@v4
         with:
           node-version: "24" # README: Node.js 24+
+
+      - name: install sememe (the decoder, from its release tag)
+        run: npm install --no-save github:auroraxo/sememe#v0.2.0
 
       # No IDL_GEN_DIR and no SOLANA_RPC: this is exactly a fresh clone's environment.
       # src/verify-recipe.mjs re-fetches each transaction from the public mainnet RPC and
@@ -59,13 +57,11 @@ jobs:
       # environment's. Network failures are retried there and, if they persist, reported as
       # "no verdict" rather than mistaken for a pass.
       #
-      # SEMEME_DIR points the verifier at the checkout above; the vendored store it reads
-      # is at idl/sememe-store/. Single-program Whirlpool recipes are then decoded from the
-      # fingerprint-verified on-chain IDL instead of the absent Orca codecs — so
-      # out/remix-6754RLWd.ts verifies here instead of reporting SKIP.
+      # The decoder comes from node_modules (sememe/codec, sememe/native, …); the vendored
+      # store it reads is at idl/sememe-store/. Single-program Whirlpool recipes are then
+      # decoded from the fingerprint-verified on-chain IDL instead of the absent Orca
+      # codecs — so out/remix-6754RLWd.ts verifies here instead of reporting SKIP.
       - name: run acceptance
-        env:
-          SEMEME_DIR: ${{ github.workspace }}/sememe
         run: node ci/acceptance.mjs
 
       # A run that proves nothing must not look like a run that proved everything. If the

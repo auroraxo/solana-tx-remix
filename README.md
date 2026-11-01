@@ -25,9 +25,9 @@ of the public `api.mainnet-beta.solana.com`.
     node src/make-negatives.mjs   # regenerate the negative controls from out/
 
 The single-program emitter reads the Whirlpool interface from `idl/sememe-store/` in this
-repo, so it needs no extra setup. It does need the `auroraxo/sememe` checkout on the
-machine for the decoder itself (`SEMEME_DIR`, or a sibling `~/github_repos/sememe`); with
-that absent it falls back to Codama-generated codecs via `--idl`/`IDL_GEN_DIR`.
+repo, so it needs no extra setup. It does need the `sememe` decoder package on the machine
+(`npm install --no-save github:auroraxo/sememe#v0.2.0` — one package, no dependencies of
+its own); with that absent it falls back to Codama-generated codecs via `--idl`/`IDL_GEN_DIR`.
 
 No private key, no wallet, no signing is involved at any point.
 
@@ -133,8 +133,9 @@ disagreements rather than only the number they happen to agree on.
 `remix-from-signature.mjs` targets one program (Whirlpool) and names its fields from the
 program's own on-chain IDL, pulled by `auroraxo/sememe` and stored in `idl/sememe-store/`
 in this repo. It runs on a fresh clone with no extra setup — the emitted recipe says which
-source it used in its header. If that store is absent (a clone without the checkout, or a
-machine without `SEMEME_DIR`), it falls back to Codama-generated codecs via `--idl <dir>`
+source it used in its header. If that store is absent (a clone without the store, or a
+machine without the `sememe` package installed), it falls back to Codama-generated codecs
+via `--idl <dir>`
 or `IDL_GEN_DIR`, and if neither source exists it exits with a message naming both rather
 than failing mid-run. A store that is present but does **not** verify is a hard stop, not
 a fallback: see "What the stored IDL changes" below. `remix-multi.mjs` is the common
@@ -459,12 +460,14 @@ same distinction: an absent store falls back to the generated codecs (or exits n
 both sources when neither exists), while a store that is present and damaged exits 2
 rather than quietly becoming another source's names.
 
-The decoder itself comes from the `auroraxo/sememe` checkout (`SEMEME_DIR`, or a sibling
-`~/github_repos/sememe`). It is imported directly, not vendored, so the two sides cannot
-drift apart; its decode core has **no npm dependencies**, which is what makes that
-possible in a repository with no `package.json` and no `node_modules`. Where neither
-decoder is reachable, the recipe reports `SKIP` as before — an unverifiable claim, never a
-pass.
+The decoder itself is the `sememe` **package**, installed from its release tag
+(`npm install --no-save github:auroraxo/sememe#v0.2.0`) — the same route any outside user
+takes. It is imported as a package, not vendored and not path-hacked into a sibling
+checkout, so the two sides cannot drift apart and the consumer needs no knowledge of where
+sememe lives on disk; its decode core has **no npm dependencies**, which is what makes
+that possible in a repository with no committed `package.json` and no committed
+`node_modules`. Where the decoder is not reachable, the recipe reports `SKIP` as before —
+an unverifiable claim, never a pass.
 
 ## What the stored IDL changes for MULTI-program recipes
 

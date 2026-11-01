@@ -41,15 +41,11 @@ import { decodeNative, encodeNative, isNativeProgram } from "./native.mjs";
 
 let codecCache = null;
 
-/** sememe's dependency-free codec. Returns null when it is not reachable. */
+/** sememe's dependency-free codec, as a package subpath. Returns null when it is not reachable. */
 async function loadCodec() {
   if (codecCache !== null) return codecCache;
-  const { sememeSourceDir } = await import("./sememe-idl.mjs");
-  const path = (await import("node:path")).default;
-  const { pathToFileURL } = await import("node:url");
-  const codecPath = path.join(sememeSourceDir(), "src", "codec.mjs");
   try {
-    codecCache = { module: await import(pathToFileURL(codecPath).href), error: null };
+    codecCache = { module: await import("sememe/codec"), error: null };
   } catch (error) {
     codecCache = { module: null, error: `cannot load sememe codec: ${error.message}` };
   }

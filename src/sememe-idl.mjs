@@ -8,16 +8,28 @@
  *
  * sememe pulls a program's own IDL from the chain and stores it content-addressed, with a
  * receipt recording program, source account, slot and fingerprint. This module consumes that
- * store:
+ * store, and imports the DECODER from the published package:
  *
- *   - `sememeSourceDir()` / `sememeStoreDir()`  — where the decoder and the artifact live
+ *   - `loadSememeCore()`                        — `sememe/codec` + `sememe/canonical`, the package
+ *   - `sememeStoreDir()`                        — where the artifact lives
  *   - `loadStoredIdl(program)`                  — object + receipt, FINGERPRINT RE-CHECKED
  *   - `decodeWithSememe(program, data)`         — one instruction payload -> named arguments
  *   - `sememeStatus()`                          — what is usable here, and what is missing
  *
- * Everything degrades to `null` with a reason instead of throwing: a machine without a sememe
- * checkout or store must still be able to run the verifier, which then falls back to the
+ * Everything degrades to `null` with a reason instead of throwing: a machine without the
+ * package or a store must still be able to run the verifier, which then falls back to the
  * generated-codec path and reports SKIP exactly as before.
+ *
+ * How sememe is found: as an npm package, installed from its git tag —
+ *
+ *   npm install --no-save github:auroraxo/sememe#v0.2.0
+ *
+ * (pinned to a release so a verifier's verdict stays reproducible). The `sememe/*` subpaths
+ * are the package's declared exports, so this file no longer knows where sememe's checkout
+ * lives — the old SEMEME_DIR / sibling-checkout convention is gone, along with the file-URL
+ * imports it required. This repository still has no package.json and no committed
+ * node_modules; the one-package install is a documented local step, the same class of step
+ * as having node on the machine.
  *
  * Why the verifier is allowed to differ from the emitter: the emitter writes names from the
  * generated codecs, and the verifier now re-derives them from an INDEPENDENT source — an IDL
@@ -32,23 +44,14 @@
 import fs from "node:fs";
 import path from "node:path";
 import { createHash } from "node:crypto";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 
 export const WHIRLPOOL_PROGRAM = "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc";
 
-/**
- * Where sememe's source lives. Same convention as `IDL_GEN_DIR`: an explicit environment
- * variable first, then a sibling checkout under the user's home. Neither is required — the
- * caller handles `null`.
- */
-export function sememeSourceDir() {
-  return (
-    process.env.SEMEME_DIR ||
-    path.resolve(process.env.HOME ?? "", "github_repos/sememe")
-  );
-}
+/** The install command the error messages name, so absence has a one-line remedy. */
+export const SEMEME_INSTALL_HINT = "npm install --no-save github:auroraxo/sememe#v0.2.0";
 
 /** The stored artifact: sememe's `<store>/objects/<fingerprint>.json` + `receipts/`. */
 export function sememeStoreDir() {
@@ -58,24 +61,20 @@ export function sememeStoreDir() {
 let codecCache = null;
 
 /**
- * Import sememe's decode core (dependency-free: node builtins and its own files only).
- * Returns `null` when there is no checkout here — never throws, so the verifier can decide
- * which path to take from the value alone.
+ * Import sememe's decode core from the PACKAGE: `sememe/codec` for the decoder and
+ * `sememe/canonical` for the exact canonicalizer `pull` hashed with. Both are declared
+ * exports, dependency-free (node builtins and the package's own files — enforced by
+ * sememe's own suite). Returns `{ error }` when the package is not installed here —
+ * never throws, so the verifier can decide which path to take from the value alone.
  */
 async function loadCodec() {
   if (codecCache !== null) return codecCache;
-  const codecPath = path.join(sememeSourceDir(), "src", "codec.mjs");
-  const canonicalPath = path.join(sememeSourceDir(), "src", "canonical.mjs");
-  if (!fs.existsSync(codecPath) || !fs.existsSync(canonicalPath)) {
-    codecCache = { error: `no sememe source at ${sememeSourceDir()} (set SEMEME_DIR)` };
-    return codecCache;
-  }
   try {
-    const codec = await import(pathToFileURL(codecPath).href);
-    const { canonicalJson } = await import(pathToFileURL(canonicalPath).href);
+    const codec = await import("sememe/codec");
+    const { canonicalJson } = await import("sememe/canonical");
     codecCache = { codec, canonicalJson, error: null };
   } catch (error) {
-    codecCache = { error: `cannot load sememe codec: ${error.message}` };
+    codecCache = { error: `sememe package not resolvable (${error.message}); install it: ${SEMEME_INSTALL_HINT}` };
   }
   return codecCache;
 }
@@ -89,7 +88,7 @@ async function loadCodec() {
  * failure. Collapsing the two is how a tampered or corrupted artifact becomes a green
  * run: the check finds the damage, cannot use the result, and quietly proceeds without it.
  *
- *   absent   — nothing here: no checkout, no store, or no receipt for this program
+ *   absent   — nothing here: no package, no store, or no receipt for this program
  *   broken   — something is here and it is wrong: unreadable, malformed, or the object's
  *              bytes do not re-hash to the fingerprint the receipt claims
  */
@@ -112,8 +111,7 @@ export async function loadStoredIdl(program = WHIRLPOOL_PROGRAM) {
   const receiptsDir = path.join(store, "receipts");
   if (!fs.existsSync(receiptsDir)) {
     return { idl: null, reason: ABSENT, error: `no sememe store at ${store} (set SEMEME_STORE or run sememe pull)` };
-  }
-  const candidates = fs.readdirSync(receiptsDir).filter((n) => n.startsWith(`${program}-`)).sort();
+  }  const candidates = fs.readdirSync(receiptsDir).filter((n) => n.startsWith(`${program}-`)).sort();
   if (!candidates.length) return { idl: null, reason: ABSENT, error: `store ${store} has no receipt for ${program}` };
 
   const receiptName = candidates[candidates.length - 1];
@@ -189,12 +187,13 @@ export async function decodeWithSememe(data, program = WHIRLPOOL_PROGRAM) {
  * What this machine can do, for a verifier that must say WHY a claim is unverifiable.
  * Returns `{ source, store, idl, reason, error, usable }`, where `reason` is `absent`
  * (nothing here — the caller may fall back) or `broken` (something is here and it is wrong
- * — the caller must not fall back silently).
+ * — the caller must not fall back silently). `source` names the PACKAGE now, not a
+ * directory: there is no checkout path to leak into reports.
  */
 export async function sememeStatus(program = WHIRLPOOL_PROGRAM) {
   const source = await loadCodec();
   if (source.error) {
-    return { usable: false, reason: ABSENT, error: source.error, source: null, store: null, idl: null };
+    return { usable: false, reason: ABSENT, error: source.error, source: "npm:sememe", store: null, idl: null };
   }
   const stored = await loadStoredIdl(program);
   if (stored.error) {
@@ -202,7 +201,7 @@ export async function sememeStatus(program = WHIRLPOOL_PROGRAM) {
       usable: false,
       reason: stored.reason,
       error: stored.error,
-      source: sememeSourceDir(),
+      source: "npm:sememe",
       store: sememeStoreDir(),
       idl: null,
     };
@@ -211,7 +210,7 @@ export async function sememeStatus(program = WHIRLPOOL_PROGRAM) {
     usable: true,
     reason: null,
     error: null,
-    source: sememeSourceDir(),
+    source: "npm:sememe",
     store: sememeStoreDir(),
     idl: stored.idl,
     fingerprint: stored.fingerprint,
@@ -220,7 +219,7 @@ export async function sememeStatus(program = WHIRLPOOL_PROGRAM) {
   };
 }
 
-/** Reset the memoized codec import — used by tests that change SEMEME_DIR. */
+/** Reset the memoized codec import — used by tests that change the environment. */
 export function _resetCodecCache() {
   codecCache = null;
 }

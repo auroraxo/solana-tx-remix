@@ -27,21 +27,17 @@
  * chain would not have executed, the new table refuses them — that is the direction the
  * falsification controls already enforce everywhere else.
  *
- * sememe is found the same way the stored-IDL decoder finds it: SEMEME_DIR first, then
- * the sibling checkout. There is no silent fallback — if sememe is absent, importing
- * this module fails, and a fresh clone of THIS repository cannot silently lose its
- * native decoding.
+ * The decoder is imported from the `sememe` PACKAGE (subpath export `sememe/native`):
+ * installed from its git tag, not vendored, so the two sides cannot drift apart. Its
+ * decode core has **no npm dependencies**, which is what keeps this repository free of
+ * any build step. If the package is not installed, importing this module does not throw:
+ * a machine without it is a documented state (the verifier reports native instructions
+ * as unverifiable there) — the reason stays available through {@link nativeStatus}, and
+ * every decode returns null while it is set.
  */
-import fs from "node:fs";
-import path from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
 
-const HERE = path.dirname(fileURLToPath(import.meta.url));
-
-/** Where sememe's checkout lives (same convention as src/sememe-idl.mjs). */
-export function sememeSourceDir() {
-  return process.env.SEMEME_DIR || path.resolve(process.env.HOME ?? "", "github_repos/sememe");
-}
+/** The install command the status message names, so absence has a one-line remedy. */
+export const SEMEME_INSTALL_HINT = "npm install --no-save github:auroraxo/sememe#v0.2.0";
 
 let nativeModule = null;
 let loadError = null;
@@ -49,16 +45,10 @@ let loadError = null;
 async function loadSememe() {
   if (nativeModule !== null) return nativeModule;
   if (loadError) return null;
-  const dir = sememeSourceDir();
-  const modulePath = path.join(dir, "src", "native.mjs");
-  if (!fs.existsSync(modulePath)) {
-    loadError = `no sememe checkout at ${dir} (set SEMEME_DIR) — the native decoder lives there`;
-    return null;
-  }
   try {
-    nativeModule = await import(pathToFileURL(modulePath).href);
+    nativeModule = await import("sememe/native");
   } catch (error) {
-    loadError = `cannot load sememe native decoder: ${error.message}`;
+    loadError = `sememe package not resolvable (${error.message}); install it: ${SEMEME_INSTALL_HINT} — the native decoder lives there`;
   }
   return nativeModule;
 }
@@ -80,8 +70,8 @@ const sememe = await loadSememe();
  */
 export function nativeStatus() {
   return sememe
-    ? { ok: true, reason: null, source: sememeSourceDir() }
-    : { ok: false, reason: loadError ?? "not loaded", source: sememeSourceDir() };
+    ? { ok: true, reason: null, source: "npm:sememe" }
+    : { ok: false, reason: loadError ?? "not loaded", source: "npm:sememe" };
 }
 
 export const SYSTEM_PROGRAM = sememe?.SYSTEM_PROGRAM ?? "11111111111111111111111111111111";

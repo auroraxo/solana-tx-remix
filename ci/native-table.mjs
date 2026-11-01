@@ -25,12 +25,11 @@
  *      upstream Rust, and the vendored bytes hash to what the artifact claims.
  *
  * Usage: node ci/native-table.mjs          (exit 0 = all checks pass)
- *        SEMEME_DIR=/path/to/sememe node ci/native-table.mjs
+ *        (no setup: the corpus and the audit come from the installed sememe package)
  */
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { execFileSync } from "node:child_process";
 import * as native from "../src/native.mjs";
 
 // The named imports are resolved through the namespace so that an OLD native module —
@@ -53,26 +52,29 @@ const status = nativeStatus
 if (!status.ok) {
   flag(`native decoder unreachable — ${status.reason}`);
 } else {
-  // A. The seeded create.
-  const harvestPath = path.join(status.source, "test", "fixtures", "harvest-system-2026-10-31.json");
-  if (!fs.existsSync(harvestPath)) {
-    flag(`sememe's system harvest fixture is missing at ${harvestPath}`);
-  } else {
+  // A. The seeded create. The corpus is sememe's own shipped harvest (sememe/native-corpus),
+  // re-hashed against its pinned sha256 on read — the same bytes the producer qualified
+  // against, not a stale copy in this repo.
+  let harvest;
+  try {
+    const corpus = await import("sememe/native-corpus");
+    const seededPayloads = corpus.payloads("system").filter((b) => b.subarray(0, 4).toString("hex") === "03000000");
+    harvest = { seeded: seededPayloads };
+  } catch (error) {
+    flag(`sememe's system corpus is unusable (${error.message})`);
+    harvest = null;
+  }
+  if (harvest) {
     let seeded = 0;
     let seededExact = 0;
-    const harvest = JSON.parse(fs.readFileSync(harvestPath, "utf8"));
-    for (const transaction of harvest.transactions ?? []) {
-      for (const p of transaction.payloads ?? []) {
-        if (!p.dataHex?.startsWith("03000000")) continue;
-        const bytes = Buffer.from(p.dataHex, "hex");
-        const decoded = decodeNative(SYSTEM, bytes);
-        if (!decoded) continue;
-        seeded += 1;
-        const rebuilt = encodeNative(SYSTEM, decoded.name, decoded.args);
-        if (decoded.name === "CreateAccountWithSeed" && /^[!-~]+$/.test(decoded.args.seed ?? "")
-          && rebuilt?.equals(bytes)) {
-          seededExact += 1;
-        }
+    for (const bytes of harvest.seeded) {
+      const decoded = decodeNative(SYSTEM, bytes);
+      if (!decoded) continue;
+      seeded += 1;
+      const rebuilt = encodeNative(SYSTEM, decoded.name, decoded.args);
+      if (decoded.name === "CreateAccountWithSeed" && /^[!-~]+$/.test(decoded.args.seed ?? "")
+        && rebuilt?.equals(bytes)) {
+        seededExact += 1;
       }
     }
     if (seeded === 0) flag("no CreateAccountWithSeed payload found — nothing to test");
@@ -105,12 +107,19 @@ if (!status.ok) {
     flag(`SetComputeUnitPrice must decode with upstream's arg name micro_lamports, got ${price ? JSON.stringify(Object.keys(price.args)) : "null"}`);
   } else note("OK  argument names carry upstream vocabulary (micro_lamports; from_seed/from_owner are snake_case)");
 
-  // E. The table is a fresh derivation of the vendored upstream bytes.
+  // E. The table is a fresh derivation of the vendored upstream bytes — audited through
+  // the package (sememe/native-audit), in this process, against the shipped artifacts.
   try {
-    execFileSync(process.execPath, ["tools/native-interface.mjs", "--check"], { cwd: status.source, stdio: "pipe" });
-    note("OK  sememe's committed native table equals a fresh derivation of the vendored upstream Rust (hash-checked at load)");
+    const { auditNativeInterface } = await import("sememe/native-audit");
+    const audit = auditNativeInterface();
+    if (!audit.ok) {
+      const detail = [...audit.stale, ...audit.missing].join(", ") || audit.error;
+      flag(`sememe's committed native table is not a fresh derivation of the vendored upstream Rust (${detail})`);
+    } else {
+      note(`OK  sememe's committed native table equals a fresh derivation of the vendored upstream Rust (${audit.checked} artifacts, hash-checked at load and re-derived here)`);
+    }
   } catch (error) {
-    flag(`sememe's committed native table is not a fresh derivation of the vendored upstream Rust (${String(error.stderr ?? error.message).trim().split("\n").slice(-1)[0]})`);
+    flag(`sememe's native audit is unusable (${error.message})`);
   }
 }
 

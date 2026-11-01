@@ -34,24 +34,16 @@
 import fs from "node:fs";
 import path from "node:path";
 import { createHash } from "node:crypto";
-import { fileURLToPath, pathToFileURL } from "node:url";
-import { sememeSourceDir, sememeStoreDir, ABSENT, BROKEN } from "./sememe-idl.mjs";
+import { sememeStoreDir, ABSENT, BROKEN } from "./sememe-idl.mjs";
 
-const HERE = path.dirname(fileURLToPath(import.meta.url));
-
-/** sememe's dependency-free derivation rule. Cached; `null` when sememe is not here. */
+/** sememe's dependency-free derivation rule. Cached; `null` when the package is not here. */
 let derivedModule = null;
 async function loadDerived() {
   if (derivedModule !== null) return derivedModule;
-  const p = path.join(sememeSourceDir(), "src", "discriminators.mjs");
-  if (!fs.existsSync(p)) {
-    derivedModule = { module: null, error: `no sememe source at ${sememeSourceDir()} (set SEMEME_DIR)` };
-    return derivedModule;
-  }
   try {
-    derivedModule = { module: await import(pathToFileURL(p).href), error: null };
+    derivedModule = { module: await import("sememe/discriminators"), error: null };
   } catch (error) {
-    derivedModule = { module: null, error: `cannot load sememe discriminators: ${error.message}` };
+    derivedModule = { module: null, error: `sememe discriminators not resolvable (${error.message})` };
   }
   return derivedModule;
 }
@@ -65,15 +57,10 @@ async function loadDerived() {
 let canonicalModule = null;
 async function loadCanonical() {
   if (canonicalModule !== null) return canonicalModule;
-  const p = path.join(sememeSourceDir(), "src", "canonical.mjs");
-  if (!fs.existsSync(p)) {
-    canonicalModule = { module: null, error: `no sememe source at ${sememeSourceDir()} (set SEMEME_DIR)` };
-    return canonicalModule;
-  }
   try {
-    canonicalModule = { module: await import(pathToFileURL(p).href), error: null };
+    canonicalModule = { module: await import("sememe/canonical"), error: null };
   } catch (error) {
-    canonicalModule = { module: null, error: `cannot load sememe canonicalizer: ${error.message}` };
+    canonicalModule = { module: null, error: `sememe canonicalizer not resolvable (${error.message})` };
   }
   return canonicalModule;
 }
